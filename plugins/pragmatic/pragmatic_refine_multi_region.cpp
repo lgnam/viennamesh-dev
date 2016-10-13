@@ -35,6 +35,7 @@ namespace viennamesh
 		bool pragmatic_refine_multi_region::run(viennamesh::algorithm_handle &)
 		{
 			  std::cout << name() << std::endl;
+        info(1) << "WORKS ONLY WITH 3D MESHES!!!" << std::endl;
 
         //typedefs
         typedef MeshType                                                        mesh_type;
@@ -116,7 +117,7 @@ namespace viennamesh
                 }
             }
           }
-
+          
           VertexIDType index = 0;
           for (typename std::map< VertexIDType, ElementType >::iterator it = used_vertex_map.begin(); it != used_vertex_map.end(); ++it)
           {
@@ -163,7 +164,6 @@ namespace viennamesh
     
           }       
           //end write vertex indices in viennagrid orientation to array
-
           
           //create pragmatic mesh 
           Mesh<double> *mesh = nullptr;
@@ -205,7 +205,7 @@ namespace viennamesh
           std::cout << pragmatic_meshes[i]->get_number_nodes() << " " << pragmatic_meshes[i]->get_number_elements() << std::endl;
           
           std::string filename;
-          filename += "examples/data/myfirsttask/output/pragmatic_mesh_refined_";
+          filename += "examples/data/pragmatic_multi_region";
           filename += std::to_string(i);
   
           VTKTools<double>::export_vtu(filename.c_str(), pragmatic_meshes[i]);

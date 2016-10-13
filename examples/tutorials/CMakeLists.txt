@@ -33,3 +33,7 @@ target_link_libraries(pragmatic_smoother ${VTK_LIBRARIES})
 add_executable(pragmatic_swapper pragmatic_swapper.cpp)
 target_link_libraries(pragmatic_swapper viennameshpp)
 target_link_libraries(pragmatic_swapper ${VTK_LIBRARIES})
+
+add_executable(parpartmesh parpartmesh.cpp)
+target_link_libraries(parpartmesh viennameshpp)
+target_link_libraries(parpartmesh ${VTK_LIBRARIES})
