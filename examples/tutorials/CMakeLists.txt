@@ -38,7 +38,3 @@ add_executable(parpartmesh parpartmesh.cpp)
 target_link_libraries(parpartmesh viennameshpp)
 target_link_libraries(parpartmesh ${VTK_LIBRARIES})
 
-add_executable(pragmatic_metis_partitioner pragmatic_metis_partitioner.cpp)
-target_link_libraries(pragmatic_metis_partitioner viennameshpp)
-target_link_libraries(pragmatic_metis_partitioner ${VTK_LIBRARIES})
-

@@ -88,7 +88,7 @@ int main(int argc, char **argv)
 	//Write mesh
 	viennamesh::algorithm_handle write_merged_mesh = context.make_algorithm("mesh_writer");
 	write_merged_mesh.set_default_source(mesh_partitioner);
-	write_merged_mesh.set_input("filename", "/home/lgnam/Desktop/software/ViennaMesh/viennamesh-dev/build/examples/data/myfirsttask/output/parpartmesh.vtu");
+	write_merged_mesh.set_input("filename", "/home/lgnam/Desktop/software/ViennaMesh/viennamesh-dev/build/examples/data/parpartmesh.vtu");
 	write_merged_mesh.run();
 
 /*END OF VIENNAMESH FRAMEWORK PART*/
