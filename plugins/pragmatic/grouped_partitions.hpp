@@ -18,6 +18,7 @@ class GroupedPartitions
 {
   //list of friend classes
   friend class GroupedPartitionsSmooth;
+  friend class GroupedPartitionsRefinement;
 
   public:
     GroupedPartitions(Mesh<double>* input_mesh, int region_count);              //Constructor
@@ -36,7 +37,7 @@ class GroupedPartitions
     std::vector<index_t> _ENList;                                               //TODO: replace this, since its unnecessarily copying data!
     std::vector<std::set<index_t>> nodes_per_partition;
     std::vector<std::set<index_t>> initial_nodes_per_partition;
-    std::vector< std::set<index_t>> elements_per_partition;
+    std::vector<std::set<index_t>> elements_per_partition;
     std::vector<std::vector<std::set<index_t>>> interface_nodes;
     std::vector<std::vector<std::vector<index_t>>> interface_sets;
     std::vector<std::vector<std::set<index_t>>> interface_elements_sets;  
@@ -48,12 +49,18 @@ class GroupedPartitions
     std::vector<Mesh<double> * > pragmatic_interfaces;
 
     //index mappings for the partitions
-    std::vector<std::unordered_map<index_t, index_t>> global_to_local_index_mappings_partitions;
-    std::vector<std::unordered_map<index_t, index_t>> local_to_global_index_mappings_partitions;
+    std::vector<std::unordered_map<index_t, index_t>> g2l_vertex_map_partitions;
+    std::vector<std::unordered_map<index_t, index_t>> l2g_vertex_map_partitions;
+
+    std::vector<std::unordered_map<index_t, index_t>> g2l_element_map_partitions;
+    std::vector<std::unordered_map<index_t, index_t>> l2g_element_map_partitions;
 
     //vectors storing the mapping information for the interfaces
-    std::vector<std::unordered_map<index_t, index_t>> global_to_local_index_mappings_interfaces;
-    std::vector<std::unordered_map<index_t, index_t>> local_to_global_index_mappings_interfaces;
+    std::vector<std::unordered_map<index_t, index_t>> g2l_vertex_map_interfaces;
+    std::vector<std::unordered_map<index_t, index_t>> l2g_vertex_map_interfaces;
+
+    std::vector<std::unordered_map<index_t, index_t>> g2l_element_map_interfaces;
+    std::vector<std::unordered_map<index_t, index_t>> l2g_element_map_interfaces;
 
     //vectors storing the number of appearances of the global indices in the local meshes
     std::vector<index_t> element_appearances;
@@ -90,15 +97,42 @@ class GroupedPartitions
     int GetVertexPartitionOrInterface(index_t n, bool* partition, bool *interface);
     void GetVertexPartitionAndInterface(index_t n, int *partition, int *interface);
     int GetElementPartitionOrInterface(index_t n);
+    void GetElementPartitionAndInterface(index_t n, int *partition, int *interface);
+    void GetAllVertexPartitionsAndInterfaces(index_t n, std::vector<bool>& partitions, std::vector<bool>& interfaces);
 
     void GetCoords(index_t n, double *vertex);
     void SetCoords(index_t n, double *vertex);
     std::vector<index_t>* GetNNList(index_t n, int *partitions, int *interfaces);
     bool GetNNList_adv(index_t n, std::vector<index_t> &_NNList);
+    bool GetNEList(index_t n, std::set<index_t> &_NEList, int *partitions, int *interfaces); 
+    //std::set<index_t> GetNEList(index_t n, std::set<index_t> &_NEList, int *partitions, int *interfaces);
+    bool GetNEList_adv(index_t n, std::set<index_t> &_NEList);
+    void GetNEList_part(index_t n, std::set<int>& _NEList, int partition);
+    void GetNEList_inter(index_t n, std::set<int>& _NEList, int interface);
     void GetCoords_inter(index_t n, double *vertex, int interface);
     void GetCoords_part(index_t n, double *vertex, int partition);
     void SetCoords_part(index_t n, double *vertex, int partition);
     void SetCoords_inter(index_t n, double *vertex, int interface);
+    void AddCoords(size_t threadIdx, std::vector<double> coords, size_t dim, size_t splitCnt);
+    void AddCoords_part(size_t threadIdx, std::vector<double> coords, size_t dim, size_t splitCnt, size_t part);
+    void AddMetric(size_t threadIdx, std::vector<double> metric, size_t msize, size_t splitCnt);
+    void AddMetric_part(size_t threadIdx, std::vector<double> metric, size_t msize, size_t splitCnt, size_t part);
+    void GetMetric(index_t n, double *metric);
+    void AddNNList(size_t id, size_t add_id);
+    void AddNNList_part(size_t id, size_t add_id, int part);
+    void RemNNList(size_t id, size_t rem_id);
+    void RemNNList_part(size_t id, size_t rem_id, int part);
+    void AddNEList(size_t id, size_t add_id);
+    void AddNEList_part(size_t id, size_t add_id, int part);
+    void AddNEList_fix(size_t id, size_t add_id, size_t threadIdx);
+    void AddNEList_fix_part(size_t id, size_t add_id, size_t threadIdx, int part);
+    void RemNEList(size_t id, size_t rem_id);
+    void RemNEList_part(size_t id, size_t rem_id, int part);
+
+    double calculate_quality(const index_t* n);
+    double calculate_quality_part(const index_t* n, int part);
+    double update_quality(index_t element);
+    double update_quality_part(index_t element, int part);
 
 }; //end of class
 
@@ -128,7 +162,7 @@ unsigned int binomial_coefficient (int n, int k)
 //TODO:conversion from ViennaMesh data structure into pragmatic data structure can be done here!?!?!?!?!?!?
 //TODO: REPLACE _NEList and _ENList function, since it's copying data unnecessarily!!!
 //TODO: use element initializer list!!!
-GroupedPartitions::GroupedPartitions(Mesh<double>* input_mesh, int region_count) : num_nodes(input_mesh->get_number_nodes()), num_elements(input_mesh->get_number_elements()), ncommon(input_mesh->get_number_dimensions()), nparts(region_count), epart(input_mesh->get_number_elements()), npart(input_mesh->get_number_nodes()), nodes_per_partition(region_count), elements_per_partition(region_count), interface_nodes(region_count-1), interface_sets(region_count-1), _NEList(input_mesh->get_node_element()), _ENList(input_mesh->get_element_node()), interface_elements_sets(region_count-1), element_counter_interfaces(input_mesh->get_number_elements(), 0), global_to_local_index_mappings_partitions(region_count), local_to_global_index_mappings_partitions(region_count), element_appearances(input_mesh->get_number_elements(), 0), vertex_appearances(input_mesh->get_number_nodes(), 0), global_to_local_index_mappings_interfaces(binomial_coefficient(region_count, 2)), local_to_global_index_mappings_interfaces(binomial_coefficient(region_count, 2)), boundary_nodes_mesh(input_mesh->get_number_nodes(), 0), boundary_nodes_partitions(region_count), boundary_nodes_interfaces(binomial_coefficient(region_count, 2)), num_partitions(region_count), num_interfaces(binomial_coefficient(region_count, 2)), initial_nodes_per_partition(region_count), partition_neighbors(region_count), interface_neighbors(binomial_coefficient(region_count, 2))
+GroupedPartitions::GroupedPartitions(Mesh<double>* input_mesh, int region_count) : num_nodes(input_mesh->get_number_nodes()), num_elements(input_mesh->get_number_elements()), ncommon(input_mesh->get_number_dimensions()), nparts(region_count), epart(input_mesh->get_number_elements()), npart(input_mesh->get_number_nodes()), nodes_per_partition(region_count), elements_per_partition(region_count), interface_nodes(region_count-1), interface_sets(region_count-1), _NEList(input_mesh->get_node_element()), _ENList(input_mesh->get_element_node()), interface_elements_sets(region_count-1), element_counter_interfaces(input_mesh->get_number_elements(), 0), g2l_vertex_map_partitions(region_count), l2g_vertex_map_partitions(region_count), g2l_element_map_partitions(region_count), l2g_element_map_partitions(region_count), element_appearances(input_mesh->get_number_elements(), 0), vertex_appearances(input_mesh->get_number_nodes(), 0), g2l_vertex_map_interfaces(binomial_coefficient(region_count, 2)), l2g_vertex_map_interfaces(binomial_coefficient(region_count, 2)), g2l_element_map_interfaces(binomial_coefficient(region_count, 2)), l2g_element_map_interfaces(binomial_coefficient(region_count, 2)), boundary_nodes_mesh(input_mesh->get_number_nodes(), 0), boundary_nodes_partitions(region_count), boundary_nodes_interfaces(binomial_coefficient(region_count, 2)), num_partitions(region_count), num_interfaces(binomial_coefficient(region_count, 2)), initial_nodes_per_partition(region_count), partition_neighbors(region_count), interface_neighbors(binomial_coefficient(region_count, 2))
 {
   std::cout << "Grouped Partitions Object created" << std::endl;
   mesh = input_mesh;
@@ -193,6 +227,10 @@ GroupedPartitions::GroupedPartitions(Mesh<double>* input_mesh, int region_count)
 //TODO:Destructor
 GroupedPartitions::~GroupedPartitions()
 {
+  //TODO: count if not working as it is supposed to!!!
+  int count = std::count_if (vertex_appearances.begin(), vertex_appearances.end(), [&](int n){return ((vertex_appearances[n] > 2) ? true : false);});
+  std::cout << "Vertex Appearances > 2: " << count << std::endl; 
+
   std::cout << "Grouped Partitions Object deleted" << std::endl;
 }
 //end of destructor
@@ -220,7 +258,7 @@ void GroupedPartitions::CreateMetisPartitioning()
   }   
 
   //Call Metis Partitioning Function (see metis manual for details on the parameters and on the use of the metis API)
-  /*METIS_PartMeshDual (&num_elements,
+  METIS_PartMeshDual (&num_elements,
                       &num_nodes,
                       eptr.data(),
                       eind.data(),
@@ -232,8 +270,9 @@ void GroupedPartitions::CreateMetisPartitioning()
                       NULL,
                       &result,
                       epart.data(),
-                      npart.data());*/
-
+                      npart.data());
+//*/ 
+/*    //This Method leads sometimes to "non-connected areas of partitions", therfore it is better to use METIS_PartMeshDual 
   METIS_PartMeshNodal(&num_elements,
                       &num_nodes,
                       eptr.data(),
@@ -246,11 +285,13 @@ void GroupedPartitions::CreateMetisPartitioning()
                       &result,
                       epart.data(),
                       npart.data());
+//*/
 }
 //end of GroupedPartitions::CreateMetisPartitioning()
 
 void GroupedPartitions::CreatePartitionsAndInterfaces()
 {
+  //TODO: bugfix interface creation, since dangling elements can occur! (can be seen when using a metric field!!!)
   std::cout << "Creating Partitions and Interfaces" << std::endl;
 
   //get the nodes per partition
@@ -424,26 +465,26 @@ void GroupedPartitions::CreatePragmaticDataStructures()
 
     //get the vertex-to-index-mapping between old and new indices
     //and additionally the index-to-vertex-mapping
-    //TODO: use unordered_map instead, to speed up the code
-    std::unordered_map <index_t, index_t> global_to_local_index_map;
-    std::unordered_map <index_t, index_t> local_to_global_index_map;
+    std::unordered_map <index_t, index_t> global_to_local_index_map_vertices;
+    std::unordered_map <index_t, index_t> local_to_global_index_map_vertices;
 
     index_t new_vertex_id = 0;
     for (auto it : nodes_per_partition[i])
     {
-      global_to_local_index_map.insert( std::make_pair(it, new_vertex_id++) );
+      global_to_local_index_map_vertices.insert( std::make_pair(it, new_vertex_id++) );
       ++vertex_appearances[it];
     }
     
-    global_to_local_index_mappings_partitions[i] = global_to_local_index_map;
+    g2l_vertex_map_partitions[i] = global_to_local_index_map_vertices;
 
     //and get also the index-to-vertex mapping (opposite direction than vertex to index mapping)
-    for (auto it : global_to_local_index_map)
+    //TODO: put this in the for loop above
+    for (auto it : global_to_local_index_map_vertices)
     {
-      local_to_global_index_map[it.second] = it.first;
+      local_to_global_index_map_vertices[it.second] = it.first;
     }
 
-    local_to_global_index_mappings_partitions[i] = local_to_global_index_map;
+    l2g_vertex_map_partitions[i] = local_to_global_index_map_vertices;
 
     //pre-allocate memory
     x_coords[i].reserve(num_points);
@@ -461,18 +502,27 @@ void GroupedPartitions::CreatePragmaticDataStructures()
       ++counter;
     }
 
-    //create ENList with respect to the new vertex indices
-    counter=0;        
+    //create ENList with respect to the new vertex indices and get also to mapping of indices for the elements
+    std::unordered_map <index_t, index_t> global_to_local_index_map_elements;
+    std::unordered_map <index_t, index_t> local_to_global_index_map_elements;
+
+    counter=0;      
     for (auto it : elements_per_partition[i])
     {      
+      global_to_local_index_map_elements.insert(std::make_pair(it, counter/3));
+      local_to_global_index_map_elements.insert(std::make_pair(counter/3, it));
+
       const index_t *element_ptr = nullptr;
       element_ptr = mesh->get_element(it);
        
-      ENLists_partitions[i][counter++] = global_to_local_index_map[*(element_ptr++)];
-      ENLists_partitions[i][counter++] = global_to_local_index_map[*(element_ptr++)];
-      ENLists_partitions[i][counter++] = global_to_local_index_map[*(element_ptr++)];  
+      ENLists_partitions[i][counter++] = global_to_local_index_map_vertices[*(element_ptr++)];
+      ENLists_partitions[i][counter++] = global_to_local_index_map_vertices[*(element_ptr++)];
+      ENLists_partitions[i][counter++] = global_to_local_index_map_vertices[*(element_ptr++)];  
       ++element_appearances[it];       
     }
+
+    l2g_element_map_partitions[i] = local_to_global_index_map_elements;
+    g2l_element_map_partitions[i] = global_to_local_index_map_elements;
 
     //create pragmatic mesh 
     Mesh<double> *partition_mesh = nullptr;
@@ -481,6 +531,62 @@ void GroupedPartitions::CreatePragmaticDataStructures()
     //mesh = new Mesh<double> ( num_points, num_cells, &(ENLists_regions[region.id()][0]) ,&(x_coords[region.id()][0]), &(y_coords[region.id()][0]), &(z_coords[region.id()][0]) );        
     partition_mesh = new Mesh<double> ( num_points, num_cells, &(ENLists_partitions[i][0]), &(x_coords[i][0]), &(y_coords[i][0]) );
     partition_mesh->create_boundary();
+
+    //create metric
+    MetricField<double,2> metric_field(*partition_mesh);
+    std::vector<double> metric_vector;
+    double eta=0.0001;
+
+    //read data
+    ifstream metric_data;
+    std::string metric_file = "metric_data_part";
+    metric_file += std::to_string(i);
+    metric_file += ".txt";
+    std::cout << metric_file <<std::endl;
+    metric_data.open(metric_file.c_str());
+
+    double metric_value;
+    int ctr = 0;
+    //for (size_t i = 0; i < num_points; ++i)
+    while(metric_data >> metric_value)
+    {
+        metric_vector.push_back(metric_value);
+        ++ctr;
+    }
+
+    //for (auto it : psi)
+     // std::cerr << it << std::endl;
+
+    for(size_t j = 0; j < num_points; j++) 
+    {
+    /*
+      //std::cerr << i << ": " << j << std::endl;
+      double x = 2*mesh->get_coords(j)[0]-1;
+      double y = 2*mesh->get_coords(j)[1]-1;
+      
+      psi[j] = 0.100000000000000*sin(50*x) + atan2(-0.100000000000000, (double)(2*x - sin(5*y)));
+      /*
+      double x = partition_mesh->get_coords(j)[0];
+      double y = partition_mesh->get_coords(j)[1];
+      //std::cout << x*y << std::endl;
+      //std::cerr << "partition calc psi " << j << std::endl;
+      psi[j]= 1;
+      //std::cerr << psi[j] << std::endl;*/
+      //psi[j] = 10;
+      double m[3];
+      m[0] = metric_vector[3*j];
+      m[1] = metric_vector[3*j+1];
+      m[2] = metric_vector[3*j+2];
+      //std::cerr << "setting field" << std::endl;
+      metric_field.set_metric(m, j);
+    }
+    //TODO: check pragmatic function Mesh.h --> get_node_patch(nid, min_patch_size)
+    //it does not work with test_box_2000x2000.vtu with 4 partitions!!!
+    metric_data.close();
+    //metric_field.add_field(&(psi[0]), 1);
+    metric_field.update_mesh();
+    
+    //end of create metric
 
     pragmatic_partitions.push_back(partition_mesh);
   
@@ -510,17 +616,17 @@ void GroupedPartitions::CreatePragmaticDataStructures()
       int num_cells = interface_elements_sets[i][j].size();
 
       //get the vertex-to-index-mapping between old and new indices
-      std::unordered_map <index_t, index_t> interface_global_to_local_index_map;
-      std::unordered_map <index_t, index_t> interface_local_to_global_index_map;
+      std::unordered_map <index_t, index_t> interface_global_to_local_index_map_vertices;
+      std::unordered_map <index_t, index_t> interface_local_to_global_index_map_vertices;
 
       if (num_points == 0 || num_cells == 0)
       {
          pragmatic_interfaces.push_back(nullptr);
       
          //if interface i does not exist, insert negative numbers into the mapping vectors to mark them as empty
-         interface_global_to_local_index_map.insert( std::make_pair(-1, -1) );
-         global_to_local_index_mappings_interfaces[interface_counter] = interface_global_to_local_index_map;
-         local_to_global_index_mappings_interfaces[interface_counter] = interface_global_to_local_index_map;
+         interface_global_to_local_index_map_vertices.insert( std::make_pair(-1, -1) );
+         g2l_vertex_map_interfaces[interface_counter] = interface_global_to_local_index_map_vertices;
+         l2g_vertex_map_interfaces[interface_counter] = interface_global_to_local_index_map_vertices;
 
         continue;
       }
@@ -528,19 +634,20 @@ void GroupedPartitions::CreatePragmaticDataStructures()
       index_t new_vertex_id = 0;  
       for (auto it : interface_nodes[i][j])
       {
-        interface_global_to_local_index_map.insert( std::make_pair(it, new_vertex_id++) );
+        interface_global_to_local_index_map_vertices.insert( std::make_pair(it, new_vertex_id++) );
         ++vertex_appearances[it]; //TODO: atomic increment for all appearances incrementations for parallelization???
       }
 
-      global_to_local_index_mappings_interfaces[interface_counter] = interface_global_to_local_index_map;
+      g2l_vertex_map_interfaces[interface_counter] = interface_global_to_local_index_map_vertices;
 
       //and get also the index-to-vertex mapping (opposite direction than vertex to index mapping)
-      for (auto it : interface_global_to_local_index_map)
+      //TODO: put this in the for loop above
+      for (auto it : interface_global_to_local_index_map_vertices)
       {
-        interface_local_to_global_index_map[it.second] = it.first;
+        interface_local_to_global_index_map_vertices[it.second] = it.first;
       }
 
-      local_to_global_index_mappings_interfaces[interface_counter] = interface_local_to_global_index_map;
+      l2g_vertex_map_interfaces[interface_counter] = interface_local_to_global_index_map_vertices;
 
       //pre-allocate memory
       x_coords_interfaces[interface_counter].reserve(num_points);
@@ -559,20 +666,28 @@ void GroupedPartitions::CreatePragmaticDataStructures()
         ++counter;
       }
 
-      //create ENList with respect to the new vertex indices
-      //TODO: combine this loop with the previous one!
+      //create ENList with respect to the new vertex indices and get also to mapping of indices for the elements      
+      std::unordered_map <index_t, index_t> global_to_local_index_map_elements;
+      std::unordered_map <index_t, index_t> local_to_global_index_map_elements;
+
       counter=0;        
       for (auto it : interface_elements_sets[i][j])
       {         
+        global_to_local_index_map_elements.insert(std::make_pair(it, counter/3));
+        local_to_global_index_map_elements.insert(std::make_pair(counter/3, it));
+
         const index_t *element_ptr = nullptr;
         element_ptr = mesh->get_element(it);
           
-        ENLists_interfaces[interface_counter][counter++] = interface_global_to_local_index_map[*(element_ptr++)];
-        ENLists_interfaces[interface_counter][counter++] = interface_global_to_local_index_map[*(element_ptr++)];
-        ENLists_interfaces[interface_counter][counter++] = interface_global_to_local_index_map[*(element_ptr++)];      
+        ENLists_interfaces[interface_counter][counter++] = interface_global_to_local_index_map_vertices[*(element_ptr++)];
+        ENLists_interfaces[interface_counter][counter++] = interface_global_to_local_index_map_vertices[*(element_ptr++)];
+        ENLists_interfaces[interface_counter][counter++] = interface_global_to_local_index_map_vertices[*(element_ptr++)];      
 
         ++element_appearances[it];    
       }
+
+      l2g_element_map_interfaces[interface_counter] = local_to_global_index_map_elements;
+      g2l_element_map_interfaces[interface_counter] = global_to_local_index_map_elements;
           
       //create pragmatic mesh 
       Mesh<double> *interface_mesh = nullptr;
@@ -581,7 +696,53 @@ void GroupedPartitions::CreatePragmaticDataStructures()
       //mesh = new Mesh<double> ( num_points, num_cells, &(ENLists_regions[region.id()][0]) ,&(x_coords[region.id()][0]), &(y_coords[region.id()][0]), &(z_coords[region.id()][0]) );        
       interface_mesh = new Mesh<double> ( num_points, num_cells, &(ENLists_interfaces[interface_counter][0]), &(x_coords_interfaces[interface_counter][0]), &(y_coords_interfaces[interface_counter][0]) );
       interface_mesh->create_boundary();
+      
+      //create metric
+      MetricField<double,2> metric_field(*interface_mesh);
+      std::vector<double> metric_vector;
+      double eta=0.0001;
 
+      //read data
+      ifstream metric_data;
+      std::string metric_file = "metric_data_inter";
+      metric_file += std::to_string(i);
+      metric_file += ".txt";
+      std::cout << metric_file <<std::endl;
+      metric_data.open(metric_file.c_str());
+
+      double metric_value;
+      int ctr = 0;
+      //for (size_t i = 0; i < num_points; ++i)
+      while(metric_data >> metric_value)
+      {
+          metric_vector.push_back(metric_value);
+          ++ctr;
+      }
+
+      for(size_t j = 0; j < num_points; j++) 
+      {/*
+        double x = 2*mesh->get_coords(j)[0]-1;
+        double y = 2*mesh->get_coords(j)[1]-1;
+        
+        psi[j] = 0.100000000000000*sin(50*x) + atan2(-0.100000000000000, (double)(2*x - sin(5*y)));*/
+        /*
+        double x = interface_mesh->get_coords(i)[0];
+        double y = interface_mesh->get_coords(i)[1];
+        //std::cerr << "interface calc psi " << i << std::endl;
+        psi[j]= 1;
+        //std::cerr << psi[i] << std::endl;*/
+
+        double m[3];
+        m[0] = metric_vector[3*j];
+        m[1] = metric_vector[3*j+1];
+        m[2] = metric_vector[3*j+2];
+        //std::cerr << "setting field" << std::endl;
+        metric_field.set_metric(m, j);
+      }
+     
+      //metric_field.add_field(&(psi[0]), eta, 1);
+      metric_field.update_mesh();
+      
       pragmatic_interfaces.push_back(interface_mesh);
     }
   }
@@ -708,12 +869,12 @@ void GroupedPartitions::GetCoords(index_t n, double *vertex)
 
   //search partitions
  
-  //do a lookup in the global_to_local_index_mappings_partitions and then return the corresponding coordinates!
-  for (size_t i = 0; i < global_to_local_index_mappings_partitions.size(); ++i)
+  //do a lookup in the g2l_vertex_map_partitions and then return the corresponding coordinates!
+  for (size_t i = 0; i < g2l_vertex_map_partitions.size(); ++i)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_partitions[i].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_partitions[i].find(n);
     
-    if (position == global_to_local_index_mappings_partitions[i].end())
+    if (position == g2l_vertex_map_partitions[i].end())
     {
       continue;
     }
@@ -729,11 +890,11 @@ void GroupedPartitions::GetCoords(index_t n, double *vertex)
   if (found)
     return; 
 
-  for (size_t i = 0; i < global_to_local_index_mappings_interfaces.size(); ++i)
+  for (size_t i = 0; i < g2l_vertex_map_interfaces.size(); ++i)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_interfaces[i].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_interfaces[i].find(n);
 
-    if(position == global_to_local_index_mappings_interfaces[i].end())
+    if(position == g2l_vertex_map_interfaces[i].end())
     {        
         continue;
     }
@@ -755,11 +916,11 @@ void GroupedPartitions::SetCoords(index_t n, double *vertex)
   int comitted = 0;
 
   //update partitions
-  for(size_t i = 0; i < global_to_local_index_mappings_partitions.size(); ++i)
+  for(size_t i = 0; i < g2l_vertex_map_partitions.size(); ++i)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_partitions[i].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_partitions[i].find(n);
 
-    if (position == global_to_local_index_mappings_partitions[i].end())
+    if (position == g2l_vertex_map_partitions[i].end())
     {
       continue;
     }
@@ -777,11 +938,11 @@ void GroupedPartitions::SetCoords(index_t n, double *vertex)
     return;
 
   //update interfaces
-  for(size_t i = 0; i < global_to_local_index_mappings_interfaces.size(); ++i)
+  for(size_t i = 0; i < g2l_vertex_map_interfaces.size(); ++i)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_interfaces[i].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_interfaces[i].find(n);
     
-    if(position == global_to_local_index_mappings_interfaces[i].end())
+    if(position == g2l_vertex_map_interfaces[i].end())
     {        
         continue;
     }
@@ -801,15 +962,16 @@ void GroupedPartitions::SetCoords(index_t n, double *vertex)
 //end of GroupedPartitions:SetCoords()
 
 //GroupedPartitions::GetNNList(index_t n, int *partition, int *interfaces)
+//Uses global indices
 std::vector<index_t>* GroupedPartitions::GetNNList(index_t n, int *partitions, int *interfaces)
 {
-  bool partition;
-  bool interface;
+  bool partition = false;
+  bool interface = false;
   int mapping = GetVertexPartitionOrInterface(n, &partition, &interface);
 
   if (partition)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_partitions[mapping].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_partitions[mapping].find(n);
 
     *partitions = mapping;
     return pragmatic_partitions[mapping]->get_nnlist( position->second );
@@ -817,7 +979,7 @@ std::vector<index_t>* GroupedPartitions::GetNNList(index_t n, int *partitions, i
 
   else if (interface)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_interfaces[mapping].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_interfaces[mapping].find(n);
 
     *interfaces = mapping;
     return pragmatic_interfaces[mapping]->get_nnlist( position->second );
@@ -826,9 +988,9 @@ std::vector<index_t>* GroupedPartitions::GetNNList(index_t n, int *partitions, i
   //check partitions
   for (size_t i = 0; i < nparts; ++i)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_partitions[i].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_partitions[i].find(n);
 
-    if (position == global_to_local_index_mappings_partitions[i].end())
+    if (position == g2l_vertex_map_partitions[i].end())
     {
       continue;
     }
@@ -839,11 +1001,11 @@ std::vector<index_t>* GroupedPartitions::GetNNList(index_t n, int *partitions, i
   //end of check partitions
 
   //check interfaces
-  for (size_t i = 0; i < global_to_local_index_mappings_interfaces.size(); ++i)
+  for (size_t i = 0; i < g2l_vertex_map_interfaces.size(); ++i)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_interfaces[i].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_interfaces[i].find(n);
 
-    if (position == global_to_local_index_mappings_interfaces[i].end())
+    if (position == g2l_vertex_map_interfaces[i].end())
     {
       continue;
     }
@@ -864,7 +1026,6 @@ bool GroupedPartitions::GetNNList_adv(index_t n, std::vector<index_t> &_NNList)
 {
   int partition = -1;
   int interface = -1;
-  
   if (vertex_appearances[n] == 2)
   {
     GetVertexPartitionAndInterface(n, &partition, &interface);
@@ -874,8 +1035,8 @@ bool GroupedPartitions::GetNNList_adv(index_t n, std::vector<index_t> &_NNList)
     return false;
 
   //get NNLists with local indices
-  std::vector<index_t> *NNList_partition = pragmatic_partitions[partition]->get_nnlist( global_to_local_index_mappings_partitions[partition].at(n) );
-  std::vector<index_t> *NNList_interface = pragmatic_interfaces[interface]->get_nnlist( global_to_local_index_mappings_interfaces[interface].at(n) );
+  std::vector<index_t> *NNList_partition = pragmatic_partitions[partition]->get_nnlist( g2l_vertex_map_partitions[partition].at(n) );
+  std::vector<index_t> *NNList_interface = pragmatic_interfaces[interface]->get_nnlist( g2l_vertex_map_interfaces[interface].at(n) );
  
   //create NNLists with global indices
   std::vector<index_t> global_nnl_part( NNList_partition->size() );
@@ -883,24 +1044,122 @@ bool GroupedPartitions::GetNNList_adv(index_t n, std::vector<index_t> &_NNList)
 
   for (size_t i = 0; i < NNList_partition->size(); ++i)
   {
-    global_nnl_part[i] = local_to_global_index_mappings_partitions[partition].at( NNList_partition->at(i) );
+    global_nnl_part[i] = l2g_vertex_map_partitions[partition].at( NNList_partition->at(i) );
   }
   
   for (size_t i = 0; i < NNList_interface->size(); ++i)
   {
-    global_nnl_inter[i] = local_to_global_index_mappings_interfaces[interface].at( NNList_interface->at(i) );
+    global_nnl_inter[i] = l2g_vertex_map_interfaces[interface].at( NNList_interface->at(i) );
   }
 
   //create union of the two vectors with global indices and return the union vector
   std::set_union( global_nnl_part.begin(), global_nnl_part.end(),
                   global_nnl_inter.begin(), global_nnl_inter.end(),
                   inserter(_NNList, _NNList.begin()));
-
+  
   //_NNList.resize(it - _NNList.begin());
 
   //std::cout << n << " in partition: " << partition << " and interface: " << interface << std::endl;
+  return true;
 }
 //end of GroupedPartitions::GetNNList_adv(index_t n, int *partitions, int *interfaces)
+
+//GroupedPartitions::GetNEList(index_t n, int *partition, int *interfaces)
+//uses global indices!
+//std::set<index_t> GroupedPartitions::GetNEList(index_t n, std::set<index_t> &_NEList, int *partitions, int *interfaces)
+bool GroupedPartitions::GetNEList(index_t n, std::set<index_t> &_NEList, int *partitions, int *interfaces)
+{
+  bool partition;
+  bool interface;
+  int mapping = GetVertexPartitionOrInterface(n, &partition, &interface);
+  //std::cerr << "found mapping" << std::endl;
+
+  if (partition)
+  {
+    //std::cerr << "search in partition 0 " << std::endl;
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_partitions[mapping].find(n);
+    //std::cerr << "  " << position->first << " " << position->second << " " << n << std::endl;
+    *partitions = mapping;    
+
+    _NEList = pragmatic_partitions[mapping]->get_reference_nelist( position->second );
+    //std::cerr << "got nelist" << std::endl;
+    //_NEList = pragmatic_partitions[mapping]->get_nelist( g2l_element_map_partitions[mapping].at(n) );
+
+    return true;
+  }
+
+  else if (interface)
+  {
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_interfaces[mapping].find(n);
+
+    double coords[2];
+    mesh->get_coords(n, coords);
+  
+    std::vector<std::set<int>> NE_global =  mesh->get_node_element();
+  
+    *interfaces = mapping;
+/*
+    for (auto it : NE_global[n])
+    {
+      std::cout << "  " << it << std::endl;
+      std::cout << "    " << g2l_element_map_interfaces[mapping].at(it) << std::endl;
+    }
+
+    std::cout<<std::endl;
+/*
+    for (auto it : pragmatic_interfaces[mapping]->get_reference_nelist( position->second ))
+    {
+      std::cout << "  " << it << std::endl;
+    }
+*/
+    //_NEList = pragmatic_interfaces[mapping]->get_nelist(position->second);
+    _NEList = pragmatic_interfaces[mapping]->get_reference_nelist( position->second );
+    //return pragmatic_interfaces[mapping]->get_reference_nelist( position->second );
+    return true;
+  }
+
+  return false;
+}
+//end of GroupedPartitions::GetNEList(index_t n, int *partitions, int *interfaces)
+
+//GroupedPartitions::GetNEList_adv(index_t n, int *partition, int *interfaces)
+//this is the GetNEList-function which returns the correct NEList if vertex is on boundary
+bool GroupedPartitions::GetNEList_adv(index_t n, std::set<index_t> &_NEList)
+{
+  int partition = -1;
+  int interface = -1;
+    
+  if (vertex_appearances[n] == 2)
+  {
+    GetVertexPartitionAndInterface(n, &partition, &interface);
+  }   
+
+  if (partition == -1 || interface == -1)
+    return false;
+
+  //get NELists with local indices 
+  std::set<index_t> NEList_partition = pragmatic_partitions[partition]->get_reference_nelist( g2l_vertex_map_partitions[partition].at(n) );
+  std::set<index_t> NEList_interface = pragmatic_interfaces[interface]->get_reference_nelist( g2l_vertex_map_interfaces[interface].at(n) );
+
+  //std::vector<std::set<int>> NE_global =  pragmatic_interfaces[interface]->get_node_element();
+
+  //create NELists with global indices
+  for(auto it : NEList_partition)
+  {
+    _NEList.insert(l2g_element_map_partitions[partition].at(it));
+  }
+
+  for(auto it : NEList_interface)
+  {    
+    //std::cout << "      " << it << " " << l2g_element_map_interfaces[interface].at(it) << std::endl;
+    _NEList.insert(l2g_element_map_interfaces[interface].at(it));
+    continue;
+  }
+
+  //return true if everything was successful
+  return true;
+}
+//end of GroupedPartitions::GetNEList_adv(index_t n, int *partitions, int *interfaces)
 
 //GroupedPartitions::WriteMergedMesh()
 void GroupedPartitions::WriteMergedMesh(std::string filename)
@@ -923,9 +1182,9 @@ void GroupedPartitions::WriteMergedMesh(std::string filename)
       const index_t *element_ptr = nullptr;
       element_ptr = pragmatic_partitions[i]->get_element(j);
 
-      merged_ENList[3*global_element_counter] = local_to_global_index_mappings_partitions[i].at( *(element_ptr++) );
-      merged_ENList[3*global_element_counter+1] = local_to_global_index_mappings_partitions[i].at( *(element_ptr++) );
-      merged_ENList[3*global_element_counter+2] = local_to_global_index_mappings_partitions[i].at( *(element_ptr++) );  
+      merged_ENList[3*global_element_counter] = l2g_vertex_map_partitions[i].at( *(element_ptr++) );
+      merged_ENList[3*global_element_counter+1] = l2g_vertex_map_partitions[i].at( *(element_ptr++) );
+      merged_ENList[3*global_element_counter+2] = l2g_vertex_map_partitions[i].at( *(element_ptr++) );  
       ++global_element_counter;
     }
   }
@@ -943,9 +1202,9 @@ void GroupedPartitions::WriteMergedMesh(std::string filename)
       const index_t *element_ptr = nullptr;
       element_ptr = pragmatic_interfaces[i]->get_element(j);
 
-      merged_ENList[3*global_element_counter] = local_to_global_index_mappings_interfaces[i].at( *(element_ptr++) );
-      merged_ENList[3*global_element_counter+1] = local_to_global_index_mappings_interfaces[i].at( *(element_ptr++) );
-      merged_ENList[3*global_element_counter+2] = local_to_global_index_mappings_interfaces[i].at( *(element_ptr++) );  
+      merged_ENList[3*global_element_counter] = l2g_vertex_map_interfaces[i].at( *(element_ptr++) );
+      merged_ENList[3*global_element_counter+1] = l2g_vertex_map_interfaces[i].at( *(element_ptr++) );
+      merged_ENList[3*global_element_counter+2] = l2g_vertex_map_interfaces[i].at( *(element_ptr++) );  
       ++global_element_counter;
     }
   }
@@ -1066,9 +1325,9 @@ int GroupedPartitions::GetVertexPartitionOrInterface(index_t n, bool *partition,
   //check partitions
   for (size_t i = 0; i < nparts; ++i)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_partitions[i].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_partitions[i].find(n);
 
-    if (position == global_to_local_index_mappings_partitions[i].end())
+    if (position == g2l_vertex_map_partitions[i].end())
     {
       continue;
     }
@@ -1080,11 +1339,11 @@ int GroupedPartitions::GetVertexPartitionOrInterface(index_t n, bool *partition,
   //end of check partitions
 
   //check interfaces
-  for (size_t i = 0; i < global_to_local_index_mappings_interfaces.size(); ++i)
+  for (size_t i = 0; i < g2l_vertex_map_interfaces.size(); ++i)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_interfaces[i].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_interfaces[i].find(n);
 
-    if (position == global_to_local_index_mappings_interfaces[i].end())
+    if (position == g2l_vertex_map_interfaces[i].end())
     {
       continue;
     }
@@ -1107,9 +1366,9 @@ void GroupedPartitions::GetVertexPartitionAndInterface(index_t n, int *partition
   //check partition
   for (size_t i = 0; i < pragmatic_partitions.size(); ++i)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_partitions[i].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_partitions[i].find(n);
 
-    if (position == global_to_local_index_mappings_partitions[i].end())
+    if (position == g2l_vertex_map_partitions[i].end())
     {
       continue;
     }
@@ -1120,9 +1379,9 @@ void GroupedPartitions::GetVertexPartitionAndInterface(index_t n, int *partition
   //check interfaces
   for (size_t i = 0; i < pragmatic_interfaces.size(); ++i)
   {
-    std::unordered_map<index_t, index_t>::iterator position = global_to_local_index_mappings_interfaces[i].find(n);
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_interfaces[i].find(n);
 
-    if (position == global_to_local_index_mappings_interfaces[i].end())
+    if (position == g2l_vertex_map_interfaces[i].end())
     {
       continue;
     }
@@ -1133,12 +1392,12 @@ void GroupedPartitions::GetVertexPartitionAndInterface(index_t n, int *partition
 }
 //end of GroupedPartitions::GetVertexPartitionAndInterface(index_t n)
 
-//TODO: GroupedPartitions::FindElement(index_t n)
+//TODO: GroupedPartitions::GetElementPartitionOrInterface(index_t n)
 int GroupedPartitions::GetElementPartitionOrInterface(index_t n)
 {
   return -1;
 }
-//end of GroupedPartitions::FindElement(index_t n)
+//end of GroupedPartitions::GetElementPartitionOrInterface(index_t n)
 
 void GroupedPartitions::PrintQuality()
 {
@@ -1186,6 +1445,55 @@ void GroupedPartitions::PrintQuality()
   quality.close();
 }
 
+//GroupedPartitions::GetAllVertexPartitionsAndInterfaces
+void GroupedPartitions::GetAllVertexPartitionsAndInterfaces(index_t n, std::vector<bool>& partitions, std::vector<bool>& interfaces)
+{
+  //check partitions
+  for (size_t i = 0; i < pragmatic_partitions.size(); ++i)
+  {
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_partitions[i].find(n);
+
+    if (position == g2l_vertex_map_partitions[i].end())
+    {
+      continue;
+    }
+    partitions[i] = true;
+  } //end of check partitions
+
+  //check interfaces
+  for (size_t i = 0; i < pragmatic_interfaces.size(); ++i)
+  {
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_interfaces[i].find(n);
+
+    if (position == g2l_vertex_map_interfaces[i].end())
+    {
+      continue;
+    }
+    
+    interfaces[i]=true;
+  } //end of check interfaces
+}
+//end of GroupedPartitions::GetAllVertexPartitionsAndInterfaces
+
+//GroupedPartitions::GetNEList_part
+void GroupedPartitions::GetNEList_part(index_t n, std::set<int>& _NEList, int partition)
+{
+  std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_partitions[partition].find(n); 
+
+  _NEList = pragmatic_partitions[partition]->get_reference_nelist( position->second );
+  //_NEList = pragmatic_partitions[mapping]->get_nelist( g2l_element_map_partitions[mapping].at(n) );
+}
+//end of GroupedPartitions::GetNEList_part
+
+//GroupedPartitions::GetNEList_inter
+void GroupedPartitions::GetNEList_inter(index_t n, std::set<int>& _NEList, int interface)
+{
+  std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_interfaces[interface].find(n); 
+
+  _NEList = pragmatic_interfaces[interface]->get_reference_nelist( position->second );
+}
+//end of GroupedPartitions::GetNEList_inter
+
 //GroupedPartitions::GetCoords_part()
 inline void GroupedPartitions::GetCoords_part(index_t n, double *vertex, int partition)
 {
@@ -1209,6 +1517,219 @@ inline void GroupedPartitions::SetCoords_inter(index_t n, double *vertex, int in
 {
   pragmatic_interfaces[interface]->set_coords(n, vertex);;
 } //end of GroupedPartitions::SetCoords_inter
+
+//GroupedPartitions::GetMetric()
+void GroupedPartitions::GetMetric(index_t n, double* metric)
+{
+  bool found = false;
+
+  //search partitions
+ 
+  //do a lookup in the g2l_vertex_map_partitions and then return the corresponding coordinates!
+  for (size_t i = 0; i < g2l_vertex_map_partitions.size(); ++i)
+  {
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_partitions[i].find(n);
+    
+    if (position == g2l_vertex_map_partitions[i].end())
+    {
+      continue;
+    }
+
+    //std::cout << "found vertex " << n << " in partition " << i << std::endl;
+    pragmatic_partitions[i]->get_metric(position->second, metric);
+  
+    found = true;
+    break;
+  }
+  //end of seach partitions
+
+  //check interface
+  if (found)
+    return; 
+
+  for (size_t i = 0; i < g2l_vertex_map_interfaces.size(); ++i)
+  {
+    std::unordered_map<index_t, index_t>::iterator position = g2l_vertex_map_interfaces[i].find(n);
+
+    if(position == g2l_vertex_map_interfaces[i].end())
+    {        
+        continue;
+    }
+
+    //std::cout << "found vertex " << n << " in interface " << i << std::endl;
+    pragmatic_interfaces[i]->get_metric(position->second, metric);
+    break;
+  }
+  //end of search interface
+}
+//end of GroupedPartitions::GetMetric()
+
+//GroupedPartitions::AddCoords()
+void GroupedPartitions::AddCoords(size_t threadIdx, std::vector<double> coords, size_t dim, size_t splitCnt)
+{
+  pragmatic_partitions[0]->add_coords(threadIdx, coords, dim, splitCnt);
+}
+//end of GroupedPartitions::AddCoords()
+
+//GroupedPartitions::AddCoords_part()
+void GroupedPartitions::AddCoords_part(size_t threadIdx, std::vector<double> coords, size_t dim, size_t splitCnt, size_t part)
+{
+  pragmatic_partitions[part]->add_coords(threadIdx, coords, dim, splitCnt);
+}
+//end of GroupedPartitions::AddCoords_part()
+
+//GroupedPartitions::AddMetric()
+void GroupedPartitions::AddMetric(size_t threadIdx, std::vector<double> metric, size_t msize, size_t splitCnt)
+{
+  pragmatic_partitions[0]->add_metric(threadIdx, metric, msize, splitCnt);
+}
+//end of GroupedPartitions::AddMetric()
+
+//GroupedPartitions::AddMetric_part()
+void GroupedPartitions::AddMetric_part(size_t threadIdx, std::vector<double> metric, size_t msize, size_t splitCnt, size_t part)
+{
+  pragmatic_partitions[part]->add_metric(threadIdx, metric, msize, splitCnt);
+}
+//end of GroupedPartitions::AddMetric_part()
+
+//GroupedPartitions::AddNNList()
+void GroupedPartitions::AddNNList(size_t id, size_t add_id)
+{
+  //std::cerr << "adding " << add_id << " to " << id << std::endl;
+  pragmatic_partitions[0]->add_nnlist(id , add_id);
+}
+//end of GroupedPartitions::AddNNList()
+
+//GroupedPartitions::AddNNList_part()
+void GroupedPartitions::AddNNList_part(size_t id, size_t add_id, int part)
+{
+  //std::cerr << "adding " << add_id << " to " << id << std::endl;
+  pragmatic_partitions[part]->add_nnlist(id , add_id);
+}
+//end of GroupedPartitions::AddNNList_part()
+
+//GroupedPartitions::RemNNList()
+void GroupedPartitions::RemNNList(size_t id, size_t rem_id)
+{
+  //std::cerr << "removing " << rem_id << " from " << id << std::endl;
+  pragmatic_partitions[0]->remove_nnlist(id, rem_id);
+}
+//end of GroupedPartitions::RemNNList()
+
+//GroupedPartitions::RemNNList_part()
+void GroupedPartitions::RemNNList_part(size_t id, size_t rem_id, int part)
+{
+  //std::cerr << "removing " << rem_id << " from " << id << std::endl;
+  pragmatic_partitions[part]->remove_nnlist(id, rem_id);
+}
+//end of GroupedPartitions::RemNNList_part()
+
+//GroupedPartitions::AddNEList()
+void GroupedPartitions::AddNEList(size_t id, size_t add_id)
+{
+  //std::cerr << "adding " << add_id << " to " << id << std::endl;
+  pragmatic_partitions[0]->add_nelist(id , add_id);
+}
+//end of GroupedPartitions::AddNEList()
+
+//GroupedPartitions::AddNEList_part()
+void GroupedPartitions::AddNEList_part(size_t id, size_t add_id, int part)
+{
+  //std::cerr << "adding " << add_id << " to " << id << std::endl;
+  pragmatic_partitions[part]->add_nelist(id , add_id);
+}
+//end of GroupedPartitions::AddNEList_part()
+
+//GroupedPartitions::AddNEList_fix()
+void GroupedPartitions::AddNEList_fix(size_t id, size_t add_id, size_t threadIdx)
+{
+  //std::cerr << "adding " << add_id << " to " << id << std::endl;
+  pragmatic_partitions[0]->add_nelist_fix(id , add_id, threadIdx);
+}
+//end of GroupedPartitions::AddNEList_fix()
+
+//GroupedPartitions::AddNEList_fix_part()
+void GroupedPartitions::AddNEList_fix_part(size_t id, size_t add_id, size_t threadIdx, int part)
+{
+  //std::cerr << "adding " << add_id << " to " << id << std::endl;
+  pragmatic_partitions[part]->add_nelist_fix(id , add_id, threadIdx);
+}
+//end of GroupedPartitions::AddNEList_fix_part()
+
+//GroupedPartitions::RemNEList()
+void GroupedPartitions::RemNEList(size_t id, size_t rem_id)
+{
+  //std::cerr << "removing " << rem_id << " from " << id << std::endl;
+  pragmatic_partitions[0]->remove_nelist(id, rem_id);
+}
+//end of GroupedPartitions::RemNEList()
+
+//GroupedPartitions::RemNEList_part()
+void GroupedPartitions::RemNEList_part(size_t id, size_t rem_id, int part)
+{
+  //std::cerr << "removing " << rem_id << " from " << id << std::endl;
+  pragmatic_partitions[part]->remove_nelist(id, rem_id);
+}
+//end of GroupedPartitions::RemNEList_part()
+
+//GroupedPartitions::calculate_quality(const index_t* n)
+double GroupedPartitions::calculate_quality(const index_t* n)
+{
+
+  //works only for test case with partition0
+  const double *x0 = pragmatic_partitions[0]->get_coords(n[0]);
+  const double *x1 = pragmatic_partitions[0]->get_coords(n[1]);
+  const double *x2 = pragmatic_partitions[0]->get_coords(n[2]);
+
+  const double *m0 = pragmatic_partitions[0]->get_metric(n[0]);
+  const double *m1 = pragmatic_partitions[0]->get_metric(n[1]);
+  const double *m2 = pragmatic_partitions[0]->get_metric(n[2]);
+
+  ElementProperty<double>* property;
+  pragmatic_partitions[0]->get_property(property);
+
+  return property->lipnikov(x0, x1, x2, m0, m1, m2);
+}
+//end of GroupedPartitions::calculate_quality(const index_t* n)
+
+//GroupedPartitions::calculate_quality_part(const index_t* n, int part)
+double GroupedPartitions::calculate_quality_part(const index_t* n, int part)
+{
+
+  //works only for test case with partition0
+  const double *x0 = pragmatic_partitions[part]->get_coords(n[0]);
+  const double *x1 = pragmatic_partitions[part]->get_coords(n[1]);
+  const double *x2 = pragmatic_partitions[part]->get_coords(n[2]);
+
+  const double *m0 = pragmatic_partitions[part]->get_metric(n[0]);
+  const double *m1 = pragmatic_partitions[part]->get_metric(n[1]);
+  const double *m2 = pragmatic_partitions[part]->get_metric(n[2]);
+
+  ElementProperty<double>* property;
+  pragmatic_partitions[part]->get_property(property);
+
+  return property->lipnikov(x0, x1, x2, m0, m1, m2);
+}
+//end of GroupedPartitions::calculate_quality_part(const index_t* n, int part)
+
+//GroupedPartitions::update_quality(const index_t* element)
+double GroupedPartitions::update_quality(index_t element)
+{
+  const index_t* n = pragmatic_partitions[0]->get_element(element);
+
+  pragmatic_partitions[0]->set_quality(element, calculate_quality(n));
+}
+//end of GroupedPartitions::update_quality(const index_t* n)
+
+//GroupedPartitions::update_quality_part(const index_t* element, int part)
+double GroupedPartitions::update_quality_part(index_t element, int part)
+{
+  const index_t* n = pragmatic_partitions[part]->get_element(element);
+
+  pragmatic_partitions[part]->set_quality(element, calculate_quality_part(n, part));
+}
+//end of GroupedPartitions::update_quality_part(const index_t* n, int part)
+
 //----------------------------------------------------------------------------------------------------------------------------------------------//
 //                                                                     End                                                                      //
 //----------------------------------------------------------------------------------------------------------------------------------------------//

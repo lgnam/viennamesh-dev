@@ -243,6 +243,15 @@ namespace viennamesh
         set_output( "mean", statistic.mean() );
         set_output( "median", statistic.median());
 
+        //only for benchmark test
+        string_handle filename = get_input<string_handle>("filename");
+
+        std::ofstream output;     
+        output.open(filename().c_str(), std::ofstream::app);
+        output << " " << (statistic.good_elements() / statistic.count());
+        output.close();
+        //
+
         return true;
     }
 

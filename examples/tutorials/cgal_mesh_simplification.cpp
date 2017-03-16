@@ -47,9 +47,9 @@ int main(int argc, char **argv)
     coarser.set_input("cost_policy", "lindstrom-turk");
     coarser.set_input("placement_policy", "lindstrom-turk");
 
-    coarser.set_input("lindstrom_volume_weight", 0.1);    //how important is volume preservation?
+    coarser.set_input("lindstrom_volume_weight", 0.5);    //how important is volume preservation?
     coarser.set_input("lindstrom_boundary_weight", 0.5);  //how important is boundary preservation?
-    coarser.set_input("lindstrom_shape_weight", 0.4);     //how important is cell shape quality?
+    coarser.set_input("lindstrom_shape_weight", 0.0);     //how important is cell shape quality?
 
     /* Geometric feature can be tried to keep preserved by marking edges whose neighboring triangles' surface normals have an angle greater than 'feature_angle' to each other as being constraint.
      * N.B: This is EXPERIMENTAL, very long coarsening times and poor mesh quality for low stop edge ratios can be the case.

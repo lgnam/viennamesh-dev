@@ -523,7 +523,7 @@ public:
     void update_mesh()
     {
         assert(_metric!=NULL);
-
+        std::cerr<< "predit_nelements_part" << std::endl;
         size_t pNElements = (size_t)predict_nelements_part();
 
         // We don't really know how much addition space we'll need so this was set after some experimentation.
@@ -541,9 +541,12 @@ public:
             pNElements = _mesh->NElements * fudge;
         }
 
+        std::cerr << "resize" << std::endl;
         // In 2D, the number of nodes is ~ 1/2 the number of elements.
         // In 3D, the number of nodes is ~ 1/6 the number of elements.
         size_t pNNodes = std::max(pNElements/(dim==2?2:6), _mesh->get_number_nodes());
+
+        std::cerr << "pNElements: " << pNElements << std::endl;
 
         _mesh->_ENList.resize(pNElements*(dim+1));
         _mesh->boundary.resize(pNElements*(dim+1));
@@ -562,14 +565,16 @@ public:
 #endif
 
         // Enforce first-touch policy
-        #pragma omp parallel
+        //#pragma omp parallel
         {
-            #pragma omp for schedule(static)
+            std::cerr << "get metric" << std::endl;
+            //#pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++) {
                 _metric[i].get_metric(&(_mesh->metric[i*(dim==2?3:6)]));
             }
-            #pragma omp for schedule(static)
-            for(int i=0; i<_NElements; i++) {
+            std::cerr << "update quality" << std::endl;
+            //#pragma omp for schedule(static)
+            for(int i=0; i<_NElements; i++) { 
                 _mesh->template update_quality<dim>(i);
             }
         }
@@ -604,7 +609,7 @@ public:
 
             if(p_norm>0) {
                 #pragma omp for schedule(static) nowait
-                for(int i=0; i<_NNodes; i++) {
+                for(int i=0; i<_NNodes; i++) {  
                     hessian_qls_kernel(psi, i, h);
 
                     double m_det;
@@ -629,10 +634,11 @@ public:
 
                     double scaling_factor = eta * pow(m_det+DBL_EPSILON, -1.0 / (2.0 * p_norm + dim));
 
+                    
                     if(std::isnormal(scaling_factor)) {
                         for(int j=0; j<(dim==2?3:6); j++)
                             h[j] *= scaling_factor;
-                    } else {
+                    } else { 
                         if(dim==2) {
                             h[0] = min_eigenvalue;
                             h[1] = 0.0;
@@ -656,7 +662,7 @@ public:
                 }
             } else {
                 #pragma omp for schedule(static)
-                for(int i=0; i<_NNodes; i++) {
+                for(int i=0; i<_NNodes; i++) { 
                     hessian_qls_kernel(psi, i, h);
 
                     for(int j=0; j<(dim==2?3:6); j++)

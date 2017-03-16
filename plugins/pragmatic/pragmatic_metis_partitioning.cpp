@@ -17,13 +17,14 @@
 #include <unordered_map>
 #include <time.h>
 
+#include <chrono>
+
 //TODO: use boost bimap to evade using two unordered maps per mesh for local-to-global- and global-to-local-indexing
 #include <boost/bimap.hpp>
 
 #include "grouped_partitions.hpp"
 #include "grouped_partitions_smooth.hpp"
-
-#include <gperftools/profiler.h>
+#include "grouped_partitions_refinement.hpp"
 
 //
 // Define the necessary types:
@@ -69,24 +70,63 @@ namespace viennamesh
 /*
       output << "Benchmarking " << filename() << " using " << region_count()/2 << " threads " << std::endl;
       output  << "==================================================" << std::endl;
-*/  
+*/  /*
       //output-file
-      ofstream output;
-      std::string tmp = filename();      
+      ofstream output;     
       size_t pos = filename().find_last_of("/\\");
       size_t pos2 = filename().find(".vtu");
       std::string input_filename = filename().substr(pos+1, pos2-(pos+1));
-      input_filename += "_";
-      input_filename += std::to_string(region_count()/2);
-      input_filename += ".txt";      
-      output.open(input_filename.c_str(), ofstream::app);
-      output << region_count()/2 << " ";
+      //input_filename += "_";
+      //input_filename += std::to_string(region_count()/2);
+      input_filename += ".txt";           
+      //if file is not there yet, write header
 
+      if (!std::ifstream(input_filename.c_str()))
+      {
+        output.open(input_filename.c_str(), ofstream::app);
+        output << "# Threads | Version | Vertex Count | CPU time [s] | Wall-clock time [s] | MinAngleRatioMerged | RadiusRatioRatioMerged | MinAngleRatioOriginal| RadiusRatioRatioOriginal |";
+      }
+
+      else
+      {        
+        output.open(input_filename.c_str(), ofstream::app);
+      }     
+/*
       //convert viennamesh into pragmatic mesh data structure
       Mesh<double> *mesh = nullptr;
 
 		  mesh = convert(input_mesh(), mesh);
-      mesh->create_boundary();
+      mesh->create_boundary(); 
+
+      //make_metric(mesh, 2); //it is not necessary to create a metric!
+      //output << "SimpleLaplaceOnGroups_sections" << std::endl << "==================================================" << std::endl;
+      output << std::endl << region_count()/2 << " sections ";
+      output << mesh->get_number_nodes() << " "; 
+      GroupedPartitions Mesh1(mesh, region_count());  
+      clock_t tic = clock();
+      GroupedPartitionsSmooth Smoother1(Mesh1);
+      clock_t toc = clock();
+      //output << "Create Smoothing Object: " << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl;
+
+      auto wall_tic = std::chrono::system_clock::now();      
+      tic = clock();
+      Smoother1.SimpleLaplaceOnGroups_sections(2);
+      std::chrono::duration<double> wall_clock_duration = std::chrono::system_clock::now() - wall_tic;
+      toc = clock();
+      //ProfilerStop();
+      //output << "SimpleLaplaceOnGroups: " << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl;
+      output << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << " " << wall_clock_duration.count();
+
+      //Smoother1.Evaluate();
+
+      tic = clock();
+      Mesh1.WriteMergedMesh();
+      toc = clock();
+
+      delete mesh;
+
+/*
+      //output << "WriteMergedMesh: " << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl  << "==================================================" << std::endl;
 
       //convert viennamesh into pragmatic mesh data structure
       Mesh<double> *serial_mesh = nullptr;
@@ -94,56 +134,72 @@ namespace viennamesh
 		  serial_mesh = convert(input_mesh(), serial_mesh);
       serial_mesh->create_boundary();
 
-      //make_metric(mesh, 2); //it is not necessary to create a metric!
-      //output << "SimpleLaplaceOnGroups_sections" << std::endl << "==================================================" << std::endl;
-      GroupedPartitions Mesh1(mesh, region_count());  
+      //output << "Serial" << std::endl << "==================================================" << std::endl;
+      output << std::endl << "1" << " serial ";      
+      output << serial_mesh->get_number_nodes() << "  ";
+      GroupedPartitions Mesh2(serial_mesh, region_count());
       clock_t tic = clock();
-      GroupedPartitionsSmooth Smoother1(Mesh1);
+      GroupedPartitionsSmooth Smoother2(Mesh2);
       clock_t toc = clock();
       //output << "Create Smoothing Object: " << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl;
-
-      //ProfilerStart("profile_simplelaplaceongroups.log");
-      tic = clock();
-      Smoother1.SimpleLaplaceOnGroups_sections(2);
-      toc = clock();
-      //ProfilerStop();
-      //output << "SimpleLaplaceOnGroups: " << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl;
-      output << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl;
-
-      Smoother1.Evaluate();
-/*
-      tic = clock();
-      Mesh1.WriteMergedMesh();
-      toc = clock();
-*/
-      //output << "WriteMergedMesh: " << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl  << "==================================================" << std::endl;
-/*
-      output << "Serial" << std::endl << "==================================================" << std::endl;
-      GroupedPartitions Mesh2(serial_mesh, region_count());
-      tic = clock();
-      GroupedPartitionsSmooth Smoother2(Mesh2);
-      toc = clock();
-      output << "Create Smoothing Object: " << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl;
-
+      
+      auto wall_tic = std::chrono::system_clock::now();
       tic = clock();
       Smoother2.SimpleLaplace(2);
+      std::chrono::duration<double> wall_clock_duration = std::chrono::system_clock::now() - wall_tic;
       toc = clock();
-      output << "SimpleLaplace: " << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl;
+      //output << "SimpleLaplace: " << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl;
+      output << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << " " << wall_clock_duration.count();
 
       tic = clock();
-      Mesh2.WriteMergedMesh("examples/data/pragmatic_metis_partitioning/SimpleLaplace.vtu");
+      //Mesh2.WriteMergedMesh("examples/data/pragmatic_metis_partitioning/SimpleLaplace.vtu");
+      Mesh2.WriteMergedMesh();
       toc = clock();
-      output << "WriteMergedMesh: " << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl << std::endl;
-*/
+      //output << "WriteMergedMesh: " << static_cast<double>(toc - tic) / CLOCKS_PER_SEC << std::endl << std::endl;
+
+      //delete pointer created at the beginning of pragmatic_metis_partitioner::run(viennamesh::algorithm_handle &)
+      delete serial_mesh;
+//*/
       //Mesh1.PrintQuality();
-      output.close();
+
+      Mesh<double> *mesh_ref = nullptr;
+      mesh_ref = convert(input_mesh(), mesh_ref);
+      mesh_ref->create_boundary();
+
+      //debug
+      ofstream nelist_original;
+      nelist_original.open("NEList_original.txt");
+      std::vector<std::set<int>> temp_nelist;
+      temp_nelist = mesh_ref->get_node_element();
+      int ne_elements2 = 0;
+      for (size_t i = 0; i < mesh_ref->get_number_nodes(); ++i)
+      {
+        nelist_original << i << ": ";
+        for (auto it : temp_nelist[i])
+        {
+          nelist_original << " " << it << " ";
+          ++ne_elements2;
+        }
+        nelist_original << std::endl;
+      }
+      nelist_original.close();
+      
+      std::cout << "NEElements_original: " << ne_elements2 << std::endl;
+      //end of debug
+
+      GroupedPartitions MeshRefine(mesh_ref, region_count());
+      GroupedPartitionsRefinement Refiner(MeshRefine, 1);  
+
+      //delete pointer created at the beginning of pragmatic_metis_partitioner::run(viennamesh::algorithm_handle &)
+      delete mesh_ref;   
+//*/
+
+     // output.close();
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
 
       set_output("mesh", input_mesh);
       
-      //delete pointer created at the beginning of pragmatic_metis_partitioner::run(viennamesh::algorithm_handle &)
-      delete mesh;
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
 
       return true;

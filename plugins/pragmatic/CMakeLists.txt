@@ -15,7 +15,8 @@ else()
 endif()
 
 #find boost packages
-find_package(Boost COMPONENTS REQUIRED timer)
+#ADD_DEFINITIONS(-DBOOST_LOG_DYN_LINK)
+find_package(Boost COMPONENTS REQUIRED timer log)
 #include_directories( ${Boost_INCLUDE_DIRS} )
 
 #Add plugin to ViennaMesh
@@ -31,6 +32,7 @@ if (METIS_FOUND)
 endif()
 
 target_link_libraries(viennamesh-module-pragmatic ${Boost_LIBRARIES})
+target_link_libraries(viennamesh-module-pragmatic ${Boost_LOG_LIBRARY})
 
 set(VTK_DIR "/home/lgnam/Desktop/software/VTK-build")
 find_package(VTK REQUIRED)

@@ -488,7 +488,6 @@ namespace viennamesh
             stream << "Number of high quality cells = " << stats.good_elements() << "\n";
             stream << "Total number of cells = " << stats.count() << "\n";
             stream << "High quality cell ratio =  " << stats.good_elements() / stats.count() << "\n";
-
         }
 
         if (stats.comparison_measures_calculated())

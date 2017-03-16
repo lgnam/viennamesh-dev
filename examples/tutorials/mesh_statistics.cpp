@@ -3,7 +3,6 @@
 
 #include "viennameshpp/core.hpp"
 
-
 /*
  * Prints the statistical quantities of an input mesh. If a second mesh is given, the input mesh is compared to the second and the comprehensive mesh quality metric can be calculated.
  *

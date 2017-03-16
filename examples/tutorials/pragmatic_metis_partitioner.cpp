@@ -71,6 +71,46 @@ int main(int argc, char **argv)
   mesh_partitioner.set_input("region_count", region_count);
   mesh_partitioner.set_input("multi_mesh_output", false);
   mesh_partitioner.run();
+/*
+  //read merged mesh
+  viennamesh::algorithm_handle merged_mesh_reader = context.make_algorithm("mesh_reader");
+  merged_mesh_reader.set_input("filename", "examples/data/pragmatic_metis_partitioning/merged_mesh.vtu");
+  merged_mesh_reader.run();
+
+  //get mesh quality statistics
+  viennamesh::algorithm_handle stats = context.make_algorithm("make_statistic");
+  stats.set_default_source(merged_mesh_reader);
+  //only for benchmarking!!
+  std::string input_filename;
+
+  size_t pos = filename.find_last_of("/\\");
+  size_t pos2 = filename.find(".vtu");
+  input_filename = filename.substr(pos+1, pos2-(pos+1));
+  //input_filename += "_";
+  //input_filename += std::to_string(region_count/2);
+  input_filename += ".txt";      
+
+  stats.set_input("filename", input_filename);   
+  //end of only for benchmarking!!           
+  stats.set_input("metric_type", "min_angle");
+  stats.set_input("good_element_threshold", 0.35);
+  stats.run();
+  stats.set_input("metric_type", "radius_ratio");
+  stats.set_input("good_element_threshold", 2);  
+  stats.run();
+
+  viennamesh::algorithm_handle stats_input_mesh = context.make_algorithm("make_statistic");
+  stats_input_mesh.set_default_source(mesh_reader);
+  stats_input_mesh.set_input("metric_type", "min_angle");
+  stats_input_mesh.set_input("good_element_threshold", 0.35);
+  //for benchmarks only
+  stats_input_mesh.set_input("filename", input_filename);
+  //end of for benchmarks only
+  stats_input_mesh.run();
+  stats_input_mesh.set_input("metric_type", "radius_ratio");
+  stats_input_mesh.set_input("good_element_threshold", 2 );
+  stats_input_mesh.run();
+
 /*	
 	//Write mesh
 	viennamesh::algorithm_handle write_merged_mesh = context.make_algorithm("mesh_writer");

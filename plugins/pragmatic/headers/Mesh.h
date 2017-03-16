@@ -357,16 +357,53 @@ public:
         return _ENList;
     }
 
+    //Return ENList size
+    size_t get_element_node_size()
+    {
+      return _ENList.size();
+    }
+
+    //Sets Element in ENList
+    void set_element(const index_t eid, index_t n, int bdry, size_t i)
+    {
+      _ENList[eid*nloc+i]=n;
+      boundary[eid*nloc+i]=bdry;
+    }
+
     /// Return a "hard" copy of the node-element list
     inline std::vector<std::set<int>> get_node_element()
     {
         return NEList;
     }
 
+    ///Returns Node-Element list for specified node
+    inline std::set<index_t>* get_ptr_nelist(index_t node)
+    {
+      return &(NEList[node]);
+    }
+
+    ///Returns Node-Element list for specified node
+    inline std::set<index_t> get_nelist(index_t node)  
+    {
+      return NEList[node];
+    }
+
+    ///Returns reference to Node-Element list for specified node
+    inline std::set<index_t>& get_reference_nelist(index_t node)  
+    {
+      return NEList[node];
+    }
+
     ///Return a "hard" copy of the coords-vector
     inline std::vector<double> get_coords_vector()
     {
       return _coords;
+    }
+
+    ///Return a "hard" copy of the metric-vector
+    inline std::vector<double> get_metric_vector()
+    {
+      return metric;
     }
 
     /// Return iterator of the boundary vector
@@ -393,6 +430,24 @@ public:
       return &(NNList[node]);
     }
 
+    ///Returns reference to Node-Node list for specified node
+    inline std::vector<index_t>& get_reference_nnlist(index_t node)  
+    {
+      return NNList[node];
+    }
+
+    //Sets NNodes to new value (needed for Refinement procedure)
+    void set_nnodes(index_t nodes)
+    {
+        NNodes = nodes;
+    }
+
+    //Sets NElements to new value (needed for Refinement procedure)
+    void set_nelements(index_t elements)
+    {
+        NElements = elements;
+    }
+
     //Return a "hard copy" of the NNList vector
     inline std::vector<std::vector<index_t>> copy_nnlist()
     {
@@ -415,6 +470,12 @@ public:
     inline size_t get_number_elements() const
     {
         return NElements;
+    }
+
+    //sets quality for an element
+    void set_quality(index_t element, double new_quality)
+    {
+      quality[element] = new_quality;
     }
 
     /// Return nloc
@@ -443,6 +504,12 @@ public:
         return;
     }
 
+    //return property
+    void get_property(ElementProperty<double>*& prop)
+    {
+      prop = property;
+    }
+
     ///sets new coords for the specified node
     inline void set_coords(index_t nid, real_t *p)
     {
@@ -452,6 +519,60 @@ public:
       {
         _coords[nid*ndims+i] = p[i];
       }
+    }
+
+    //add coords to coords vector
+    inline void add_coords(size_t threadIdx, std::vector<double>& new_coords, size_t dim, size_t splitCnt)
+    {
+      //std::cerr << _coords.size() << " " << NNodes << " " << coords[0].size() << std::endl;
+      memcpy(&_coords[dim * threadIdx], &new_coords[0], dim*splitCnt*sizeof(double) );
+    }
+
+    //add new elements to mesh
+    inline void add_elements(std::vector<index_t>& newElements, size_t splitCnt, size_t threadIdx)
+    {
+      memcpy(&_ENList[nloc*threadIdx], &newElements[0], nloc * splitCnt * sizeof(index_t) );
+    }
+
+    //add new boundaries to mesh
+    inline void add_boundaries(std::vector<int>& newBoundaries, size_t splitCnt, size_t threadIdx)
+    {
+      memcpy(&boundary[nloc*threadIdx], &newBoundaries[0], nloc * splitCnt * sizeof(int));
+    }
+
+    //add new qualities to mesh
+    inline void add_qualities(std::vector<double>& newQualities, size_t splitCnt, size_t threadIdx)
+    {
+      memcpy(&quality[threadIdx], &newQualities[0], splitCnt * sizeof(double));
+    }
+
+    //Resize Vectors
+    void resize_vectors(size_t dim)
+    {
+     // std::cerr << "resizing" <<std::endl;
+     // std::cerr << NNodes << std::endl;
+      size_t reserve = 1.1*NNodes; // extra space is required for centroidals
+     // std::cerr << "reserve: " << reserve << " " << _coords.size() << std::endl;
+      if(_coords.size()<reserve*dim) 
+      {
+       // std::cout << "true" << std::endl;
+        _coords.resize(reserve*dim);
+       // std::cout<<"coords"<<std::endl;
+        metric.resize(reserve*msize);
+       // std::cout<<"metric"<<std::endl;
+        NNList.resize(reserve);
+       // std::cout<<"nnlist"<<std::endl;
+        NEList.resize(reserve);
+       // std::cout<<"nelist"<<std::endl;        
+      }
+      //std::cerr << "resizing successful" << std::endl;
+    }
+
+    //add metric to metric vector
+    inline void add_metric(size_t threadIdx, std::vector<double>& newMetric, size_t dim, size_t splitCnt)
+    {
+      //std::cerr<< metric.size()<<std::endl;
+      memcpy(&metric[msize*threadIdx], &newMetric[0], msize*splitCnt*sizeof(double));
     }
 
     /// Return metric at that vertex.
@@ -487,6 +608,51 @@ public:
     {
         return node_owner[nid] == rank;
     }
+
+    //Return pointer to boundary
+    const int* get_boundary_ptr (size_t pos)
+    {
+      return &(boundary[pos]);
+    }
+
+    //Adds Vertex to NNList
+    inline void add_nnlist(size_t id, size_t add_id)
+    {
+      //std::cerr << "adding " << add_id << " to " << id << std::endl;
+      NNList[id].push_back(add_id);
+    }
+
+    //Removes Vertex from NNList
+    inline void remove_nnlist(size_t id, size_t rem_id)
+    {
+      //std::cerr << "removing " << rem_id << " from " << id << std::endl;
+      std::vector<index_t>::iterator position = std::find(NNList[id].begin(), NNList[id].end(), rem_id);         
+      NNList[id].erase(position);
+    }
+
+    //Adds element to NEList
+    inline void add_nelist(size_t id, size_t add_id)
+    {
+      //std::cerr << "add " << add_id << " to " << id << std::endl;
+      NEList[id].insert(add_id);
+    }
+
+    //Adds element to NEList and fix ID's
+    inline void add_nelist_fix(size_t id, size_t add_id, size_t threadIdx)
+    {
+      //std::cerr << "add fix " << add_id << " to " << id << std::endl;
+      NEList[id].insert(add_id+threadIdx);
+      //std::cerr << "threadIdx " << threadIdx << std::endl;
+      //std::cerr << id << " " << add_id + threadIdx << std::endl;
+    }
+
+    //Removes element from NEList
+    inline void remove_nelist(size_t id, size_t rem_id)
+    {
+      //std::cerr << "remove " << rem_id << " from " << id << std::endl;
+      NEList[id].erase(rem_id);
+    }
+
 
     /// Get the mean edge length metric space.
     double get_lmean()
@@ -870,7 +1036,9 @@ public:
         assert(nid<(index_t)NNodes);
         std::set<index_t> patch;
         for(typename std::vector<index_t>::const_iterator it=NNList[nid].begin(); it!=NNList[nid].end(); ++it)
+        {
             patch.insert(patch.end(), *it);
+        }
         return patch;
     }
 
@@ -878,9 +1046,9 @@ public:
     std::set<index_t> get_node_patch(index_t nid, size_t min_patch_size)
     {
         std::set<index_t> patch = get_node_patch(nid);
-
-        if(patch.size()<min_patch_size) {
+        if(patch.size()<min_patch_size) { 
             std::set<index_t> front = patch, new_front;
+            size_t ctr = 0; //debug
             for(;;) {
                 for(typename std::set<index_t>::const_iterator it=front.begin(); it!=front.end(); it++) {
                     for(typename std::vector<index_t>::const_iterator jt=NNList[*it].begin(); jt!=NNList[*it].end(); jt++) {
@@ -888,11 +1056,20 @@ public:
                             new_front.insert(*jt);
                             patch.insert(*jt);
                         }
+                        ++ctr;
                     }
                 }
 
                 if(patch.size()>=std::min(min_patch_size, NNodes))
                     break;
+
+                //debug
+                if (ctr > 100)
+                {
+                  std::cerr << nid << std::endl;
+                  std::cerr << "break!" << std::endl;
+                  break;
+                }
 
                 front.swap(new_front);
             }
@@ -910,7 +1087,7 @@ public:
             m[0] = (metric[nid0*3  ]+metric[nid1*3  ])*0.5;
             m[1] = (metric[nid0*3+1]+metric[nid1*3+1])*0.5;
             m[2] = (metric[nid0*3+2]+metric[nid1*3+2])*0.5;
-
+           // std::cout << " " << metric[nid0*3  ] << " " << metric[nid0*3+1] << metric[nid0*3+2] << std::endl << std::endl;
             length = ElementProperty<real_t>::length2d(get_coords(nid0), get_coords(nid1), m);
         } else {
             double m[6];
@@ -1978,7 +2155,7 @@ private:
             const double *m0 = get_metric(n[0]);
             const double *m1 = get_metric(n[1]);
             const double *m2 = get_metric(n[2]);
-
+            
             return property->lipnikov(x0, x1, x2, m0, m1, m2);
         } else {
             const double *x0 = get_coords(n[0]);

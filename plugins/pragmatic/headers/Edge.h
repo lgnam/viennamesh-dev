@@ -193,6 +193,8 @@ public:
     template<typename _real_t, int _dim> friend class Coarsen;
     template<typename _real_t, int _dim> friend class Swapping;
     template<typename _real_t, int _dim> friend class Refine;
+    //My Own Implementation!!!
+    friend class GroupedPartitionsRefinement;
 
 private:
     index_t id;
