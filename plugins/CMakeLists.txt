@@ -109,3 +109,7 @@ if (ENABLE_PLUGIN_ZOLTAN)
   endif()
 endif()
 
+option(ENABLE_PLUGIN_COLOR_REFINEMENT "Enable Color-Based Refinement" ON)
+if(ENABLE_PLUGIN_COLOR_REFINEMENT)
+  add_subdirectory(color_based_refinement)
+endif()
