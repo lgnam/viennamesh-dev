@@ -99,3 +99,13 @@ if (ENABLE_PLUGIN_PRAGMATIC)
   add_subdirectory(pragmatic)
 endif()
 
+option(ENABLE_PLUGIN_ZOLTAN "Enable Zoltan plugin" ON)
+if (ENABLE_PLUGIN_ZOLTAN)
+  find_package(Zoltan)
+  if (Zoltan_FOUND)
+    add_subdirectory(zoltan)
+  else()
+    message(FATAL_ERROR "No Zoltan Version found")
+  endif()
+endif()
+
