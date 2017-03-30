@@ -60,7 +60,7 @@ inline void make_metric(Mesh<double> *mesh, size_t geometric_dimension)
 			}
 		}//end make_metric
 
-//convert vienangrid to pragmatic data structure
+//convert viennagrid to pragmatic data structure
 inline Mesh<double>* convert(MeshType input_mesh, Mesh<double>* mesh)
 		{
 			  size_t cell_dimension = viennagrid::cell_dimension( input_mesh );
@@ -134,7 +134,7 @@ inline Mesh<double>* convert(MeshType input_mesh, Mesh<double>* mesh)
 				  return mesh;
 		  	}
 		
-		 	else
+		 	  else
 		  	{		
 				  mesh = new Mesh<double> (NNodes, NElements, &(ENList[0]), &(x[0]), &(y[0]), &(z[0]));
 				  return mesh;

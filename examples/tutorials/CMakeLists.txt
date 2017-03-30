@@ -51,3 +51,6 @@ target_link_libraries(pragmatic_refine_multi_region_mesh viennameshpp)
 
 add_executable(zoltan_example zoltan.cpp)
 target_link_libraries(zoltan_example viennameshpp)
+
+add_executable(color_refinement color_refinement.cpp)
+target_link_libraries(color_refinement viennameshpp)

@@ -11,17 +11,18 @@ if (METIS_FOUND)
   message(STATUS "METIS libraries: ${METIS_LIBRARIES}")
   include_directories(${METIS_INCLUDE_DIRS})
 else()
-  message(STATUS "METIS not found")
+  message(FATAL_ERROR "METIS not found")
 endif()
 
 #Add plugin to ViennaMesh
 VIENNAMESH_ADD_PLUGIN(viennamesh-module-color-refinement 	plugin.cpp
-                      )
+                      color_refinement.cpp
+                      pragmatic_mesh.cpp)
 
 if (METIS_FOUND)
-  target_link_libraries(viennamesh-module-pragmatic ${METIS_LIBRARIES})
+  target_link_libraries(viennamesh-module-color-refinement ${METIS_LIBRARIES})
 endif()
 
 find_package(VTK REQUIRED)
 include(${VTK_USE_FILE})
-target_link_libraries(viennamesh-module-pragmatic ${VTK_LIBRARIES})
+target_link_libraries(viennamesh-module-color-refinement ${VTK_LIBRARIES})

@@ -18,7 +18,7 @@ class MeshPartitions
     public:
         MeshPartitions(Mesh<double>* original_mesh, int num_regions);          //Constructor
         ~MeshPartitions();
-                                                                          //Destructor
+                                                                               //Destructor
     private:
 }; //end of class MeshPartitions
 

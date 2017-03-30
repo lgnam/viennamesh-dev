@@ -347,8 +347,6 @@ namespace viennamesh
 
     viennamesh_error convert(cgal::polyhedron_surface_mesh const & input, viennagrid::mesh & output)
     {
-
-
         typedef cgal::polyhedron_surface_mesh::Vertex_const_iterator	Vertex_iterator;
         typedef cgal::polyhedron_surface_mesh::Facet_const_iterator		Facet_iterator;
         int numberofpoints =0;
