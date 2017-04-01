@@ -29,7 +29,6 @@ namespace viennamesh
             bool run(viennamesh::algorithm_handle &);
         };
     }
-
 }
 
 

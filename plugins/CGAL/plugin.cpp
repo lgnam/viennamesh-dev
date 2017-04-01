@@ -3,7 +3,6 @@
 #include "cgal_mesh_simplification.hpp"
 #include "cgal_automatic_mesh_simplification.hpp"
 
-
 viennamesh_error viennamesh_plugin_init(viennamesh_context context)
 {
   viennamesh::register_data_type<viennamesh::cgal::polyhedron_surface_mesh>(context); //CGAL's triangulated surface mesh data type
