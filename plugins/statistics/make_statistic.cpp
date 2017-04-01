@@ -221,6 +221,7 @@ namespace viennamesh
             set_output("area_deviation", statistic.volume_deviation());
             set_output("triangle_shape", statistic.good_elements()/statistic.count());
             set_output("mesh_quality_metric", statistic.mesh_quality_metric());
+            set_output( "number_of_cells_original", viennagrid_numeric(statistic_orig.count()));
         }
 
 
@@ -242,6 +243,7 @@ namespace viennamesh
         set_output( "max", statistic.max() );
         set_output( "mean", statistic.mean() );
         set_output( "median", statistic.median());
+        set_output( "number_of_cells", viennagrid_numeric(statistic.count()));
 
         return true;
     }
