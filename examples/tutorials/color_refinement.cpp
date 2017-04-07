@@ -40,11 +40,11 @@ int main(int argc, char *argv[])
 	mesh_reader.set_input("filename", filename.c_str());
 	mesh_reader.run();
 
-    // Create algorithm handle for reading the mesh from a file and run it
+    // Create algorithm handle for the color-based-refinement
 	viennamesh::algorithm_handle color = context.make_algorithm("color_refinement");
 	color.set_default_source(mesh_reader);
     //color.set_input("filename", filename.c_str());
-	//color.set_input("region_count", region_count);
+	color.set_input("num_partitions", region_count);
 	color.run();
 
 	//Write output mesh

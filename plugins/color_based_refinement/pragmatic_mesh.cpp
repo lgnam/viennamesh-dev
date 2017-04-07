@@ -77,11 +77,13 @@ namespace viennamesh
         if (geometric_dimension == 2)	
         {
             output = new Mesh<double> (NNodes, NElements, &(ENList[0]), &(x[0]), &(y[0]));
+            output->create_boundary();
         }
     
         else
         {		
             output = new Mesh<double> (NNodes, NElements, &(ENList[0]), &(x[0]), &(y[0]), &(z[0]));
+            output->create_boundary();
         }
         
         return VIENNAMESH_SUCCESS;
