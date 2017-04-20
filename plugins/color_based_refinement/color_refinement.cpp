@@ -16,6 +16,7 @@ namespace viennamesh
 			info(1) << name() << std::endl;
 
 			info(1) << "  Number of vertices: " << input_mesh()->get_number_nodes() << std::endl;
+      		info(1) << "  Dimension: " << input_mesh()->get_number_dimensions() << std::endl;
 
 			MeshPartitions InputMesh(input_mesh(), num_partitions());
 

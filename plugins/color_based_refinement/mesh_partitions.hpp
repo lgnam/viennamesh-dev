@@ -5,6 +5,10 @@
 //TODO: implement own data structure
 #include "Mesh.h"
 
+//TODO: DEBUG
+#include "VTKTools.h"
+//END OF DEBUG
+
 //viennamesh includes
 #include "viennameshpp/plugin.hpp"
 
@@ -24,14 +28,18 @@
 class MeshPartitions
 {
     public:
-        MeshPartitions(Mesh<double>* original_mesh, int num_regions);                   //Constructor
-        ~MeshPartitions();                                                              //Destructor
+        MeshPartitions(Mesh<double>* original_mesh, int num_regions);                         //Constructor
+        ~MeshPartitions();                                                                    //Destructor
 
-        std::vector<Mesh<double>*> pragmatic_partitions;                                //Vector containing pointers to the pragmatic partitions
+        std::vector<Mesh<double>*> pragmatic_partitions;                                      //Vector containing pointers to the pragmatic partitions
 
     private:
-        bool MetisPartitioning(Mesh<double>* original_mesh, int num_regions);           //Partition mesh using metis
-        bool CreatePragmaticDataStructures(Mesh<double>* original_mesh, int num_regions);                //Create Pragmatic Meshes storing the mesh partitions
+        bool MetisPartitioning(Mesh<double>* original_mesh, int num_regions);                 //Partition mesh using metis
+        bool CreatePragmaticDataStructures_ser(Mesh<double>* original_mesh, int num_regions); //Create Pragmatic Meshes storing the mesh partitions in serial
+        bool CreatePragmaticDataStructures_par(Mesh<double>* original_mesh, int num_regions); //Create Pragmatic Meshes storing the mesh partitions in parallel
+        bool CreateNeighborhoodInformation(Mesh<double>* original_mesh, int num_regions);     //Create neighborhood information for vertices and partitions
+        bool ColorPartitions();                                                               //Color the partitions
+        bool WritePartitions();                                                               //ONLY FOR DEBUGGING!
 
         //Variables for Metis   
         std::vector<idx_t> eptr;
@@ -53,6 +61,14 @@ class MeshPartitions
         std::vector<std::unordered_map<index_t, index_t>> global_to_local_index_mappings;
         std::vector<std::unordered_map<index_t, index_t>> local_to_global_index_mappings;
 
+        //Neighborhood Information containers
+        std::vector<std::set<int>> nodes_partition_ids;
+        std::vector<std::set<int>> partition_adjcy;
+
+        //Color information
+        size_t colors;                                                                        //Stores the number of colors used
+        std::vector<int> partition_colors;                                                    //Contains the color assigned to each partition
+
 }; //end of class MeshPartitions
 
 //----------------------------------------------------------------------------------------------------------------------------------------------//
@@ -70,7 +86,14 @@ MeshPartitions::MeshPartitions(Mesh<double>* original_mesh, int num_regions)
 {
     MetisPartitioning(original_mesh, num_regions);
 
-    //CreatePragmaticDataStructures(original_mesh, num_regions);
+    CreateNeighborhoodInformation(original_mesh, num_regions);
+
+    ColorPartitions();
+
+    //CreatePragmaticDataStructures_ser(original_mesh, num_regions); //Think about where I create the actual data structures!!!
+
+  //  WritePartitions();
+
 } //end of Constructor
 
 //Destructor
@@ -89,12 +112,10 @@ bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions
     //get basic mesh information
     num_elements = mesh->get_number_elements();
     num_nodes = mesh->get_number_nodes();
-    ncommon = mesh->get_number_dimensions();
-    std::vector<idx_t> bdry = mesh->copy_boundary_vector();
-    size_t num_bdry_nodes = std::accumulate(bdry.begin(), bdry.end(), 0);
-    idx_t numflag = 0;     //0...C-style numbering is assumed that starts from 0; 1...Fortran-style numbering is assumed that starts from 1
-
-    std::cout << num_bdry_nodes << std::endl;
+    //ncommon = mesh->get_number_dimensions();
+   // std::vector<idx_t> bdry = mesh->copy_boundary_vector();
+   // size_t num_bdry_nodes = std::accumulate(bdry.begin(), bdry.end(), 0);
+   // idx_t numflag = 0;     //0...C-style numbering is assumed that starts from 0; 1...Fortran-style numbering is assumed that starts from 1
 
     //reserve memory
     epart.reserve(num_elements);
@@ -104,7 +125,7 @@ bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions
     xadj.resize(num_nodes+1);
     std::vector<idx_t> adjncy;
     adjncy.resize(2*(3*num_nodes - 3 - num_bdry_nodes)); //see: http://math.stackexchange.com/questions/1541125/total-number-of-edges-in-a-triangle-mesh-with-n-vertices
-*/
+*//*
     int num_edges = 2*(3*num_nodes - 3 - num_bdry_nodes);
     idx_t *xadj;
     xadj = new idx_t[num_nodes+1];
@@ -112,7 +133,7 @@ bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions
     adjncy= new idx_t[num_edges];
 
  //   std::cout << adjncy.size() << std::endl;
-
+*/
     //fill eptr and eind, as done in viennamesh plugin "metis", file "mesh_partitionig.cpp"  
     eptr.push_back(0);
     
@@ -129,6 +150,21 @@ bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions
         eptr.push_back( eind.size() );    
     }  
 
+   /* //DEBUG
+    ofstream outfile;
+    outfile.open("box300x300.metis");
+
+    std::vector<int> _ENList_dbg = mesh->get_element_node();
+    
+    outfile << mesh->get_number_elements() << std::endl;
+
+    for (size_t i = 0; i < mesh->get_number_elements(); ++i)
+    {
+      outfile << _ENList_dbg[3*i]+1 << " " << _ENList_dbg[3*i+1]+1 << " " << _ENList_dbg[3*i+2]+1 << std::endl;
+    }
+    outfile.close();
+    //END OF DEBUG*/
+
     //Call Metis Partitioning Function (see metis manual for details on the parameters and on the use of the metis API)
     /*METIS_PartMeshDual (&num_elements,
                         &num_nodes,
@@ -144,7 +180,7 @@ bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions
                         epart.data(),
                         npart.data());*/
 
- /*   METIS_PartMeshNodal(&num_elements,
+   METIS_PartMeshNodal(&num_elements,
                         &num_nodes,
                         eptr.data(),
                         eind.data(),
@@ -156,7 +192,8 @@ bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions
                         &result,
                         epart.data(),
                         npart.data());
-*/
+
+/*
     METIS_MeshToDual(&num_elements,
                      &num_nodes,
                      eptr.data(),
@@ -165,9 +202,21 @@ bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions
                      &numflag,
                      &xadj,
                      &adjncy);
-    
+    */
     viennamesh::info(5) << "Created " << num_regions << " mesh partitions using Metis" << std::endl;
 
+    /*//DEBUG
+    ofstream epart_stream;
+    epart_stream.open("epart.8");
+
+    for (size_t i = 0; i < num_elements; ++i)
+    {
+      epart_stream << epart[i] << std::endl;
+    }
+    epart_stream.close();
+    //END OF DEBUG*/
+
+/*
     std::cout << "xadj: " << std::endl;
     for (size_t i = 0; i < num_nodes+1; ++i)
         std::cout << " " << i << ": " << xadj[i] << std::endl;
@@ -175,14 +224,151 @@ bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions
     std::cout << "adjncy: " << std::endl;
     for (size_t i = 0; i < num_edges; ++i)
         std::cout << " " << i << ": " << adjncy[i] << std::endl;
-
+*/
 
     return true;
 }//end of MetisPartitioning
 
-//CreatePragmaticDataStructures
+//CreateNeighborhoodInformation
 //
-bool MeshPartitions::CreatePragmaticDataStructures(Mesh<double>* const original_mesh, int num_regions)
+//Tasks: Populate Vertex partition container and create adjacency lists for each partition
+bool MeshPartitions::CreateNeighborhoodInformation(Mesh<double>* original_mesh, int num_regions)
+{  
+  //prepare a partition id container for vertices and partitions
+  //this will be populated with all partitions a vertex is part of
+  nodes_partition_ids.resize(num_nodes);
+  partition_adjcy.resize(num_regions);
+
+  //populate the container
+  for(size_t i = 0; i < num_elements; ++i)
+  {
+    //get vertices of element
+    const index_t *element_ptr = nullptr;
+    element_ptr = original_mesh->get_element(i);
+
+    size_t ndims = original_mesh->get_number_dimensions();
+
+    //iterate element vertices and add partition id
+    for (size_t j = 0; j < (ndims+1); ++j)
+    {
+      nodes_partition_ids[*(element_ptr++)].insert(epart[i]);
+    }
+  }
+
+  //create partition adjacency information
+  for (size_t i = 0; i < nodes_partition_ids.size(); ++i)
+  {
+      if (nodes_partition_ids[i].size() > 1)
+      {
+        for (auto set_iter : nodes_partition_ids[i])
+        {
+            for (auto set_iter2 : nodes_partition_ids[i])
+            {
+                if (set_iter == set_iter2)
+                    continue;
+
+                partition_adjcy[set_iter].insert(set_iter2);
+            }
+        }
+      }
+  }
+
+/*
+  //DEBUG
+  for (size_t i = 0; i < num_regions; ++i)
+  {
+      std::cout << "Partition " << i << " has the following neighbors: " << std::endl;
+
+      for (auto iter : partition_adjcy[i])
+      {
+          std::cout << "  " << iter << std::endl;
+      }
+  }
+  //END OF DEBUG
+*/
+
+  return true;
+}
+//end of CreateNeighborhoodInformation
+
+//ColorParittions
+//
+//Tasks: Color the partitions such that independent sets are created
+bool MeshPartitions::ColorPartitions()
+{
+    viennamesh::info(1) << "Coloring partitions" << std::endl;
+    //resize vector
+    partition_colors.resize(partition_adjcy.size());
+
+    colors = 1;          //number of used colors
+    partition_colors[0] = 0;    //assign first partition color 0
+
+    //visit every partition and assign the smallest color available (not already assigned to on of its neighbors)
+    for (size_t i = 1; i < partition_colors.size(); ++i)
+    {
+        
+        //int tmp_color = partition_colors[*(partition_adjcy[i].begin())] + 1;   //assign next color
+        int tmp_color = 0; //start with smallest color 
+        bool next_color = false;
+
+        do
+        {
+            //check if assigned color in tmp_color is already assigned to a neighbor
+            //since we assign colors to partitions in ascending ID order, check only
+            //neighbors with smaller partition ID
+            for (auto iter : partition_adjcy[i])
+            {
+                //if chosen color is already assigned to neighbor, try next color
+                if ( i > iter && partition_colors[iter] == tmp_color) 
+                {
+                    ++tmp_color;
+                    next_color = true;
+                    break;
+                }
+
+                //if chosen color is ok exit loop
+                else
+                    next_color=false;
+            }
+        } while(next_color);
+
+       /* for (size_t j = 1; j < partition_adjcy[i].size(); ++j)
+        {
+            //check if assigned color in tmp_color is already assigned to a neighbor
+            if (partition_colors[partition_adjcy[i][j]] >= tmp_color)
+            {
+                tmp_color = partition_colors[partition_adjcy[i][j]] + 1;
+            }
+        }*/
+
+        partition_colors[i] = tmp_color;
+
+        if ( (tmp_color + 1) > colors )
+        {
+            colors = tmp_color + 1;
+        }
+    }
+
+    /*//DEBUG
+    //std::cout << "Number of used colors: " << colors << std::endl;
+    std::cout << "  Partition | Color " << std::endl;
+ 
+    for (size_t i = 0; i < partition_colors.size(); ++i)
+    {
+        std::cout << "          " << i << " | " << partition_colors[i] << std::endl;
+    }
+    //END OF DEBUG*/
+
+    viennamesh::info(1) << "   Partitions count = " << partition_colors.size() << std::endl;
+    viennamesh::info(1) << "   Number of colors = " << colors << std::endl;
+}
+//end of ColorPartitions
+
+//CreatePragmaticDataStructures_ser
+//
+//Tasks: Get and order data needed to create a pragmatic data structure for each partition
+//Runs only serial
+bool MeshPartitions::CreatePragmaticDataStructures_ser(Mesh<double>* const original_mesh, int num_regions)
 {
     //reserve memory
     nodes_per_partition.resize(num_regions);
@@ -237,7 +423,7 @@ bool MeshPartitions::CreatePragmaticDataStructures(Mesh<double>* const original_
             global_to_local_index_map.insert( std::make_pair(it, new_vertex_id++) );
             //++vertex_appearances[it];
         }
-   
+
         //global_to_local_index_mappings_partitions[i] = global_to_local_index_map;
 
         //and get also the index-to-vertex mapping (opposite direction than vertex to index mapping)
@@ -291,11 +477,51 @@ bool MeshPartitions::CreatePragmaticDataStructures(Mesh<double>* const original_
     } 
     //end of loop over all partitions
 
-    viennamesh::info(5) << "Created " << pragmatic_partitions.size() << " pragmatic meshes" << std::endl;
-
+    viennamesh::info(5) << "Created " << pragmatic_partitions.size() << " pragmatic mesh data structures" << std::endl;
+/*
+    //DEBUG
+      //write partitions
+      for (size_t i = 0; i < pragmatic_partitions.size(); ++i)
+      {
+        std::cout << "Writing partition " << i << std::endl;
+        std::cout << "  Vertex count = " << pragmatic_partitions[i]->get_number_nodes() << std::endl;
+        std::cout << "  Cell count = " << pragmatic_partitions[i]->get_number_elements() << std::endl;
+        
+        std::string filename;
+        filename += "examples/data/color_refinement/";
+        filename += "output_";
+        filename += "_partition_";
+        filename += std::to_string( i );
+      
+        VTKTools<double>::export_vtu(filename.c_str(), pragmatic_partitions[i]);
+      }
+    //END OF DEBUG
+*/
     return true;
 }
-//Tasks: Get and order data needed to create a pragmatic data structure for each partition
-//end of CreatePragmaticDataStructures
+//end of CreatePragmaticDataStructures_ser
+
+//WritePartitions
+//
+//Tasks: Writes Partitions
+bool MeshPartitions::WritePartitions()
+{
+    //write partitions
+    for (size_t i = 0; i < pragmatic_partitions.size(); ++i)
+    {
+        std::cout << "Writing partition " << i << std::endl;
+        std::cout << "  Vertex count = " << pragmatic_partitions[i]->get_number_nodes() << std::endl;
+        std::cout << "  Cell count = " << pragmatic_partitions[i]->get_number_elements() << std::endl;
+        
+        std::string filename;
+        filename += "examples/data/color_refinement/";
+        filename += "output_";
+        filename += "_partition_";
+        filename += std::to_string( i );
+        
+        VTKTools<double>::export_vtu(filename.c_str(), pragmatic_partitions[i]);
+    }
+} 
+//end of WritePartitions
 
 #endif
