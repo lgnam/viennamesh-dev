@@ -15,6 +15,7 @@
 #include "metis.h"
 #include <unordered_map>
 #include <numeric>  
+#include <chrono>
 
 //all other includes
 
@@ -28,18 +29,34 @@
 class MeshPartitions
 {
     public:
-        MeshPartitions(Mesh<double>* original_mesh, int num_regions);                         //Constructor
+        MeshPartitions(Mesh<double> * const original_mesh, int num_regions, std::string filename);   //Constructor
         ~MeshPartitions();                                                                    //Destructor
 
         std::vector<Mesh<double>*> pragmatic_partitions;                                      //Vector containing pointers to the pragmatic partitions
 
+        bool MetisPartitioning();                                                             //Partition mesh using metis
+        bool CreatePragmaticDataStructures_ser();                                             //Create Pragmatic Meshes storing the mesh partitions in serial
+        bool CreatePragmaticDataStructures_par();                                             //Create Pragmatic Meshes storing the mesh partitions in parallel
+        bool CreateNeighborhoodInformation();                                                 //Create neighborhood information for vertices and partitions
+        bool ColorPartitions();                                                               //Color the partitions
+        bool WritePartitions();                                                               //ONLY FOR DEBUGGING!
+
+        int get_colors(){return colors;};
+        int get_max(){return max;};
+        std::vector<std::vector<int>>& get_color_partitions() {return color_partitions;};
+
     private:
+/*
         bool MetisPartitioning(Mesh<double>* original_mesh, int num_regions);                 //Partition mesh using metis
         bool CreatePragmaticDataStructures_ser(Mesh<double>* original_mesh, int num_regions); //Create Pragmatic Meshes storing the mesh partitions in serial
         bool CreatePragmaticDataStructures_par(Mesh<double>* original_mesh, int num_regions); //Create Pragmatic Meshes storing the mesh partitions in parallel
         bool CreateNeighborhoodInformation(Mesh<double>* original_mesh, int num_regions);     //Create neighborhood information for vertices and partitions
-        bool ColorPartitions();                                                               //Color the partitions
+        bool ColorPartitions(int num_regions);                                                               //Color the partitions
         bool WritePartitions();                                                               //ONLY FOR DEBUGGING!
+*/
+
+        Mesh<double>* original_mesh;
+        int num_regions;
 
         //Variables for Metis   
         std::vector<idx_t> eptr;
@@ -68,6 +85,12 @@ class MeshPartitions
         //Color information
         size_t colors;                                                                        //Stores the number of colors used
         std::vector<int> partition_colors;                                                    //Contains the color assigned to each partition
+        std::vector<std::vector<int>> color_partitions;                                       //Contains the partition ids assigned to each color
+
+
+        //DEBUG
+        int max=0;
+        //END OF DEBUG
 
 }; //end of class MeshPartitions
 
@@ -82,18 +105,48 @@ class MeshPartitions
 //Constructor
 //
 //Tasks: TODO
-MeshPartitions::MeshPartitions(Mesh<double>* original_mesh, int num_regions)
-{
-    MetisPartitioning(original_mesh, num_regions);
+//MeshPartitions::MeshPartitions(Mesh<double>* original_mesh, int num_regions, std::string filename)
+MeshPartitions::MeshPartitions(Mesh<double> * const orig_mesh, int nregions, std::string filename)
+{    
+    original_mesh = orig_mesh;
+    num_regions = nregions;
+    /* 
+    auto overall_tic = std::chrono::system_clock::now();
 
-    CreateNeighborhoodInformation(original_mesh, num_regions);
+    auto wall_tic = std::chrono::system_clock::now();
+        MetisPartitioning(original_mesh, num_regions);
+    std::chrono::duration<double> partitioning_duration = std::chrono::system_clock::now() - wall_tic;
+    //viennamesh::info(1) << "  Partitioning time " << wall_clock_duration.count() << std::endl;
 
-    ColorPartitions();
+    wall_tic = std::chrono::system_clock::now();
+        CreateNeighborhoodInformation(original_mesh, num_regions);
+    std::chrono::duration<double> adjacency_duration = std::chrono::system_clock::now() - wall_tic;
+    //viennamesh::info(1) << "  Creating adjacency information time " << wall_clock_duration.count() << std::endl;
 
-    //CreatePragmaticDataStructures_ser(original_mesh, num_regions); //Think about where I create the actual data structures!!!
+    wall_tic = std::chrono::system_clock::now();
+        ColorPartitions(num_regions);
+    std::chrono::duration<double> coloring_duration = std::chrono::system_clock::now() - wall_tic;
+    //viennamesh::info(1) << "  Coloring time " << wall_clock_duration.count() << std::endl;
 
-  //  WritePartitions();
+    std::chrono::duration<double> overall_duration = std::chrono::system_clock::now() - overall_tic;
+    //viennamesh::info(1) << "  Overall time inside " << overall_duration.count() << std::endl;
 
+    CreatePragmaticDataStructures_ser(original_mesh, num_regions); //Think about where I create the actual data structures!!!
+
+    ofstream csv;
+    csv.open("times.csv", ios::app);
+
+    //csv << "File, Vertices, Elements, Partitions, Colors, Partitioning [s], Adjacency Info [s], Coloring [s], Total [s]" << std::endl;
+    csv << filename << ", " << original_mesh->get_number_nodes() << ", " << original_mesh->get_number_elements() << ", ";
+    csv << num_regions << ", " << max+1 << ", " << colors << ", ";
+    csv <<  partitioning_duration.count() << ", ";
+    csv <<  adjacency_duration.count() << ", ";
+    csv <<  coloring_duration.count() << ", ";
+    csv <<  overall_duration.count() << std::endl;
+    csv.close();
+  
+    //WritePartitions();
+*/
 } //end of Constructor
 
 //Destructor
@@ -107,11 +160,12 @@ MeshPartitions::~MeshPartitions()
 //MetisPartitioning
 //
 //Tasks: Partitions the input mesh (in pragmatic data structure) into the specified number of partitions
-bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions)
+//bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions)
+bool MeshPartitions::MetisPartitioning()
 {
     //get basic mesh information
-    num_elements = mesh->get_number_elements();
-    num_nodes = mesh->get_number_nodes();
+    num_elements = original_mesh->get_number_elements();
+    num_nodes = original_mesh->get_number_nodes();
     //ncommon = mesh->get_number_dimensions();
    // std::vector<idx_t> bdry = mesh->copy_boundary_vector();
    // size_t num_bdry_nodes = std::accumulate(bdry.begin(), bdry.end(), 0);
@@ -137,12 +191,12 @@ bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions
     //fill eptr and eind, as done in viennamesh plugin "metis", file "mesh_partitionig.cpp"  
     eptr.push_back(0);
     
-    for (size_t i = 0; i < mesh->get_number_elements(); ++i)
+    for (size_t i = 0; i < original_mesh->get_number_elements(); ++i)
     {
         const index_t* element_ptr = nullptr;
-        element_ptr = mesh->get_element(i);
+        element_ptr = original_mesh->get_element(i);
 
-        for (size_t j = 0; j < (mesh->get_number_dimensions() + 1); ++j)
+        for (size_t j = 0; j < (original_mesh->get_number_dimensions() + 1); ++j)
         {
             eind.push_back( *(element_ptr+j) );
         }               
@@ -203,24 +257,25 @@ bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions
                      &xadj,
                      &adjncy);
     */
+
     viennamesh::info(5) << "Created " << num_regions << " mesh partitions using Metis" << std::endl;
 
     /*//DEBUG
     ofstream epart_stream;
     epart_stream.open("epart.8");
-
+  
     for (size_t i = 0; i < num_elements; ++i)
     {
       epart_stream << epart[i] << std::endl;
     }
-    epart_stream.close();
+    //epart_stream.close();
     //END OF DEBUG*/
 
 /*
     std::cout << "xadj: " << std::endl;
     for (size_t i = 0; i < num_nodes+1; ++i)
         std::cout << " " << i << ": " << xadj[i] << std::endl;
-
+/*
     std::cout << "adjncy: " << std::endl;
     for (size_t i = 0; i < num_edges; ++i)
         std::cout << " " << i << ": " << adjncy[i] << std::endl;
@@ -232,7 +287,8 @@ bool MeshPartitions::MetisPartitioning(Mesh<double>* const mesh, int num_regions
 //CreateNeighborhoodInformation
 //
 //Tasks: Populate Vertex partition container and create adjacency lists for each partition
-bool MeshPartitions::CreateNeighborhoodInformation(Mesh<double>* original_mesh, int num_regions)
+//bool MeshPartitions::CreateNeighborhoodInformation(Mesh<double>* original_mesh, int num_regions)
+bool MeshPartitions::CreateNeighborhoodInformation()
 {  
   //prepare a partition id container for vertices and partitions
   //this will be populated with all partitions a vertex is part of
@@ -253,6 +309,12 @@ bool MeshPartitions::CreateNeighborhoodInformation(Mesh<double>* original_mesh, 
     {
       nodes_partition_ids[*(element_ptr++)].insert(epart[i]);
     }
+
+    //DEBUG
+    if (epart[i] > max)
+      max = epart[i];
+    //END OF DEBUG
+
   }
 
   //create partition adjacency information
@@ -294,13 +356,14 @@ bool MeshPartitions::CreateNeighborhoodInformation(Mesh<double>* original_mesh, 
 //ColorParittions
 //
 //Tasks: Color the partitions such that independent sets are created
+//bool MeshPartitions::ColorPartitions(int num_regions)
 bool MeshPartitions::ColorPartitions()
 {
     viennamesh::info(1) << "Coloring partitions" << std::endl;
     //resize vector
     partition_colors.resize(partition_adjcy.size());
 
-    colors = 1;          //number of used colors
+    colors = 1;                 //number of used colors
     partition_colors[0] = 0;    //assign first partition color 0
 
     //visit every partition and assign the smallest color available (not already assigned to on of its neighbors)
@@ -349,18 +412,45 @@ bool MeshPartitions::ColorPartitions()
         }
     }
 
-    /*//DEBUG
+    //create a vector containing the color information for each partition
+    //each vector element is one color and contains the partitions with this color
+    color_partitions.resize(colors);
+
+    for (size_t i = 0; i < partition_colors.size(); ++i)
+    {
+        color_partitions[ partition_colors[i] ].push_back(i);
+    }
+
+    //DEBUG
     //std::cout << "Number of used colors: " << colors << std::endl;
-    std::cout << "  Partition | Color " << std::endl;
+  /*  std::cout << "  Partition | Color " << std::endl;
  
     for (size_t i = 0; i < partition_colors.size(); ++i)
     {
         std::cout << "          " << i << " | " << partition_colors[i] << std::endl;
     }
+
+    std::cout << std::endl << "      Color | #Partitions " << std::endl;
+ */
+    for (size_t i = 0; i < color_partitions.size(); ++i)
+    {
+        std::cout << "          " << i << " | " << color_partitions[i].size() << std::endl;
+/*      
+        std::cout << "          " << i << " | ";
+        for (auto it : color_partitions[i])
+        {
+           std::cout << it << " ";
+        }
+
+        std::cout << std::endl;*/
+    }
     //END OF DEBUG*/
 
-    viennamesh::info(1) << "   Partitions count = " << partition_colors.size() << std::endl;
+    viennamesh::info(1) << "   Partitions param = " << num_regions << std::endl;
+    viennamesh::info(1) << "   Partitions count = " << max+1 << std::endl;
     viennamesh::info(1) << "   Number of colors = " << colors << std::endl;
+
+    return true;
 }
 //end of ColorPartitions
 
@@ -368,7 +458,8 @@ bool MeshPartitions::ColorPartitions()
 //
 //Tasks: Get and order data needed to create a pragmatic data structure for each partition
 //Runs only serial
-bool MeshPartitions::CreatePragmaticDataStructures_ser(Mesh<double>* const original_mesh, int num_regions)
+//bool MeshPartitions::CreatePragmaticDataStructures_ser(Mesh<double>* const original_mesh, int num_regions)
+bool MeshPartitions::CreatePragmaticDataStructures_ser()
 {
     //reserve memory
     nodes_per_partition.resize(num_regions);
@@ -390,7 +481,6 @@ bool MeshPartitions::CreatePragmaticDataStructures_ser(Mesh<double>* const origi
 
         //add element
         elements_per_partition[ epart[i] ].insert(i);
-
     } 
     //end of get nodes per partition
 
@@ -501,6 +591,28 @@ bool MeshPartitions::CreatePragmaticDataStructures_ser(Mesh<double>* const origi
 }
 //end of CreatePragmaticDataStructures_ser
 
+//CreatePragmaticDataStructures_par
+//
+//Tasks: Get and order data needed to create a pragmatic data structure for each partition
+//Runs in parallel
+//bool MeshPartitions::CreatePragmaticDataStructures_par(Mesh<double>* const original_mesh, int num_regions)
+bool MeshPartitions::CreatePragmaticDataStructures_par()
+{
+    std::vector<int> _ENList_orig = original_mesh->get_element_node();
+
+    //iterate colors
+    for (size_t color = 0; color < 1; color++)
+    {
+        #pragma omp parallel for schedule(guided) num_threads(2)
+        for (size_t part_id = 0; part_id < color_partitions[color].size(); ++part_id)
+        {
+            
+        }
+        //end parallel for loop
+    } //end for loop colors
+}
+//end of CreatePragmaticDataStructures_par
+
 //WritePartitions
 //
 //Tasks: Writes Partitions
@@ -514,13 +626,15 @@ bool MeshPartitions::WritePartitions()
         std::cout << "  Cell count = " << pragmatic_partitions[i]->get_number_elements() << std::endl;
         
         std::string filename;
-        filename += "examples/data/color_refinement/";
+        filename += "examples/data/color_refinement/output/";
         filename += "output_";
-        filename += "_partition_";
+        filename += "partition_";
         filename += std::to_string( i );
         
         VTKTools<double>::export_vtu(filename.c_str(), pragmatic_partitions[i]);
     }
+
+  return true;
 } 
 //end of WritePartitions
 

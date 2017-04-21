@@ -39,19 +39,22 @@ int main(int argc, char *argv[])
 	viennamesh::algorithm_handle mesh_reader = context.make_algorithm("mesh_reader");
 	mesh_reader.set_input("filename", filename.c_str());
 	mesh_reader.run();
-
-    // Create algorithm handle for the color-based-refinement
+  
+  // Create algorithm handle for the color-based-refinement
 	viennamesh::algorithm_handle color = context.make_algorithm("color_refinement");
+//for (region_count =2; region_count <= 8192; region_count*=2)
+//{
+    
 	color.set_default_source(mesh_reader);
-    //color.set_input("filename", filename.c_str());
 	color.set_input("num_partitions", region_count);
+	color.set_input("filename", filename.c_str());
 	color.run();
-
+//}
 	//Write output mesh
 	viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
 	mesh_writer.set_default_source(color);
 	mesh_writer.set_input("filename", "output_mesh.vtu");
-	mesh_writer.run();
+	//mesh_writer.run();
 
     return 0;
 }
