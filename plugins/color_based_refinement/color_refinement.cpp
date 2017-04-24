@@ -2,6 +2,7 @@
 
 #include "pragmatic_mesh.hpp"
 #include "mesh_partitions.hpp"
+#include "mesh_partitions_refinement.hpp"
 
 //#include <omp.h>
 
@@ -56,11 +57,12 @@ namespace viennamesh
 */
 
 			wall_tic = std::chrono::system_clock::now();
-				InputMesh.RefineInterior();
+				//InputMesh.RefineInterior();
+				MeshPartitionsRefinement RefineMesh(InputMesh);
 			std::chrono::duration<double> refinement_duration = std::chrono::system_clock::now() - wall_tic;
 
 			std::chrono::duration<double> overall_duration = std::chrono::system_clock::now() - overall_tic;
-			
+
 			ofstream csv;
 			csv.open("times.csv", ios::app);
 
