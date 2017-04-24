@@ -1,5 +1,5 @@
 #Add the directory containing all header files from pragmatic (note that pragmatic is header only!)
-set(PRAGMATIC_INCLUDES "${CMAKE_SOURCE_DIR}/plugins/pragmatic/headers")
+set(PRAGMATIC_INCLUDES "${CMAKE_SOURCE_DIR}/plugins/color_based_refinement/external")
 include_directories(${PRAGMATIC_INCLUDES})
 message (STATUS "Pragmatic includes: ${PRAGMATIC_INCLUDES}")
 

@@ -43,31 +43,37 @@ namespace viennamesh
 				InputMesh.ColorPartitions();
 			std::chrono::duration<double> coloring_duration = std::chrono::system_clock::now() - wall_tic;
 			//viennamesh::info(1) << "  Coloring time " << wall_clock_duration.count() << std::endl;
-/*
+
 			//viennamesh::info(1) << "  Overall time inside " << overall_duration.count() << std::endl;
 			wall_tic = std::chrono::system_clock::now();
-				//InputMesh.CreatePragmaticDataStructures_ser(); //Think about where I create the actual data structures!!!
+				InputMesh.CreatePragmaticDataStructures_ser(); //Think about where I create the actual data structures!!!
 			std::chrono::duration<double> pragmatic_duration = std::chrono::system_clock::now() - wall_tic;
-*/
-			//PARALLEL PART
+
+			/*//PARALLEL PART
 			wall_tic = std::chrono::system_clock::now();
 				InputMesh.CreatePragmaticDataStructures_par();
 			std::chrono::duration<double> pragmatic_duration = std::chrono::system_clock::now() - wall_tic;	
+*/
+
+			wall_tic = std::chrono::system_clock::now();
+				InputMesh.RefineInterior();
+			std::chrono::duration<double> refinement_duration = std::chrono::system_clock::now() - wall_tic;
 
 			std::chrono::duration<double> overall_duration = std::chrono::system_clock::now() - overall_tic;
-			std::cout << "YESSA"<<std::endl;
+			
 			ofstream csv;
 			csv.open("times.csv", ios::app);
 
 			//csv << "File, Vertices, Elements, Desired Partitions, Created Partitions, Colors, Partitioning [s], Adjacency Info [s],
-			// Coloring [s] ,Create Partitions [s], Total [s]" << std::endl;
+			// Coloring [s] ,Create Partitions [s], Refinement [s], Total [s]" << std::endl;
 			csv << input_file().substr(found+1) << ", " << input_mesh()->get_number_nodes() << ", " << input_mesh()->get_number_elements() << ", ";
 			csv << num_partitions() << ", " << InputMesh.get_max()+1 << ", " << InputMesh.get_colors() << ", ";
-			csv <<  partitioning_duration.count() << ", ";
-			csv <<  adjacency_duration.count() << ", ";
-			csv <<  coloring_duration.count() << ", ";
-			csv <<  pragmatic_duration.count() << ", ";
-			csv <<  overall_duration.count() << std::endl;
+			csv << partitioning_duration.count() << ", ";
+			csv << adjacency_duration.count() << ", ";
+			csv << coloring_duration.count() << ", ";
+			csv << pragmatic_duration.count() << ", ";
+			csv << refinement_duration.count() << ", ";
+			csv << overall_duration.count() << std::endl;
 			csv.close();
 		
 			//InputMesh.WritePartitions();

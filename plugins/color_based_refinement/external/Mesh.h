@@ -365,6 +365,14 @@ public:
         return NNodes;
     }
 
+    /// Return a reference to the ENList
+    inline std::vector<int>& get_enlist()
+    {
+        std::cout << "get_enlist()" << std::endl;
+        std::cout << "check if color_based_refinement uses now the correct pragmatic header files and if the new pragmatic version works correctly with my code" << std::endl;
+        return _ENList;
+    }
+
     /// Return the number of elements in the mesh.
     inline size_t get_number_elements() const
     {

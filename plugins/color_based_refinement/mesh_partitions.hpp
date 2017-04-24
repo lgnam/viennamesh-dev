@@ -12,12 +12,11 @@
 //viennamesh includes
 #include "viennameshpp/plugin.hpp"
 
+//all other includes
 #include "metis.h"
 #include <unordered_map>
 #include <numeric>  
 #include <chrono>
-
-//all other includes
 
 //----------------------------------------------------------------------------------------------------------------------------------------------//
 //                                                                Declaration                                                                   //
@@ -40,6 +39,7 @@ class MeshPartitions
         bool CreateNeighborhoodInformation();                                                 //Create neighborhood information for vertices and partitions
         bool ColorPartitions();                                                               //Color the partitions
         bool WritePartitions();                                                               //ONLY FOR DEBUGGING!
+        bool RefineInterior();                                                                //Refinement without refining boundary elements
 
         int get_colors(){return colors;};
         int get_max(){return max;};
@@ -208,7 +208,7 @@ bool MeshPartitions::MetisPartitioning()
     ofstream outfile;
     outfile.open("box300x300.metis");
 
-    std::vector<int> _ENList_dbg = mesh->get_element_node();
+    std::vector<int> _ENList_dbg = mesh->get_enlist();
     
     outfile << mesh->get_number_elements() << std::endl;
 
@@ -431,7 +431,7 @@ bool MeshPartitions::ColorPartitions()
     }
 
     std::cout << std::endl << "      Color | #Partitions " << std::endl;
- */
+ *//*
     for (size_t i = 0; i < color_partitions.size(); ++i)
     {
         std::cout << "          " << i << " | " << color_partitions[i].size() << std::endl;
@@ -443,7 +443,7 @@ bool MeshPartitions::ColorPartitions()
         }
 
         std::cout << std::endl;*/
-    }
+    //}
     //END OF DEBUG*/
 
     viennamesh::info(1) << "   Partitions param = " << num_regions << std::endl;
@@ -468,7 +468,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_ser()
     local_to_global_index_mappings.resize(num_regions);
 
     //get ENList
-    _ENList = original_mesh->get_element_node();
+    _ENList = original_mesh->get_enlist();
 
     //get the nodes for each partition
     for (int i = 0; i < num_elements; ++i)
@@ -598,15 +598,19 @@ bool MeshPartitions::CreatePragmaticDataStructures_ser()
 //bool MeshPartitions::CreatePragmaticDataStructures_par(Mesh<double>* const original_mesh, int num_regions)
 bool MeshPartitions::CreatePragmaticDataStructures_par()
 {
-    std::vector<int> _ENList_orig = original_mesh->get_element_node();
+    std::vector<int> _ENList_orig = original_mesh->get_enlist();
 
     //iterate colors
-    for (size_t color = 0; color < 1; color++)
+    for (size_t color = 0; color < colors; color++)
     {
         #pragma omp parallel for schedule(guided) num_threads(2)
         for (size_t part_id = 0; part_id < color_partitions[color].size(); ++part_id)
         {
-            
+            //get vertices and elements from original mesh
+            for(size_t ele_id = 0; ele_id < original_mesh->get_number_elements(); ele_id++)
+            {
+                ;
+            }
         }
         //end parallel for loop
     } //end for loop colors
@@ -638,4 +642,13 @@ bool MeshPartitions::WritePartitions()
 } 
 //end of WritePartitions
 
+//RefineInterior
+//
+//Tasks: Refines mesh partition but leaves boundary elements untouched
+//Notes: Refinement runs serially!!!!
+bool MeshPartitions::RefineInterior()
+{
+    std::cout << "RefineInterior()" << std::endl;
+}
+//end of RefineInterior
 #endif

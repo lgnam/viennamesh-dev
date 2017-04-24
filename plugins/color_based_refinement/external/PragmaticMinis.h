@@ -50,7 +50,7 @@
 #include <cstdlib>
 #include <atomic>
 
-int pragmatic_nthreads()
+inline int pragmatic_nthreads()
 {
 #ifdef HAVE_OPENMP
     return omp_get_max_threads();
@@ -59,7 +59,7 @@ int pragmatic_nthreads()
 #endif
 }
 
-int pragmatic_thread_id()
+inline int pragmatic_thread_id()
 {
 #ifdef HAVE_OPENMP
     return omp_get_thread_num();
@@ -69,14 +69,14 @@ int pragmatic_thread_id()
 }
 
 #ifdef HAVE_MPI
-int pragmatic_nprocesses(MPI_Comm comm)
+inline int pragmatic_nprocesses(MPI_Comm comm)
 {
     int nprocesses;
     MPI_Comm_size(comm, &nprocesses);
     return nprocesses;
 }
 
-int pragmatic_process_id(MPI_Comm comm)
+inline int pragmatic_process_id(MPI_Comm comm)
 {
     int id;
     MPI_Comm_rank(comm, &id);
@@ -85,7 +85,7 @@ int pragmatic_process_id(MPI_Comm comm)
 #endif
 
 // Returns the original value of shared, while incrementing *shared by inc.
-size_t pragmatic_omp_atomic_capture(size_t* shared, size_t inc)
+inline size_t pragmatic_omp_atomic_capture(size_t* shared, size_t inc)
 {
     size_t old;
 #if __FUJITSU
