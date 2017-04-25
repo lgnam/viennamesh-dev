@@ -87,7 +87,7 @@ namespace viennamesh
 			csv.close();
 			
 			InputMesh.WritePartitions();
-			InputMesh.WriteMergedMesh("output.vtu");
+			//InputMesh.WriteMergedMesh("output.vtu");
 			/*
 			auto overall_tic = std::chrono::system_clock::now();
 

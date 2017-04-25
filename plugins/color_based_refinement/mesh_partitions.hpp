@@ -94,12 +94,16 @@ class MeshPartitions
         std::vector<std::set<int>> nodes_partition_ids;
         std::vector<std::set<int>> partition_adjcy;
 
+        std::set<int>& get_nodes_partition_ids(int n){return nodes_partition_ids[n];};
+
         //Color information
         size_t colors;                                                                        //Stores the number of colors used
         std::vector<int> partition_colors;                                                    //Contains the color assigned to each partition
         std::vector<std::vector<int>> color_partitions;                                       //Contains the partition ids assigned to each color
 
         double calc_edge_length(int part_id, index_t x0, index_t y0);
+        double calculate_quality(const index_t* n, int part_id);
+        double update_quality(index_t element, int part_id);
 
         //DEBUG
         int max=0;
@@ -722,15 +726,20 @@ bool MeshPartitions::CreatePragmaticDataStructures_par()
 
             for (size_t i = 0; i < num_points; ++i)
             {
-                double x = 2*partition->get_coords(i)[0]-1;
-                double y = 2*partition->get_coords(i)[1]-1;
+                //double x = 2*partition->get_coords(i)[0]-1;
+                //double y = 2*partition->get_coords(i)[1]-1;
         
-                psi[i] = 0.100000000000000*sin(50*x) + atan2(-0.100000000000000, (double)(2*x - sin(5*y)));
+                //psi[i] = 0.100000000000000*sin(50*x) + atan2(-0.100000000000000, (double)(2*x - sin(5*y)));
+                psi[i] = 0.0001;
             }
+
             metric_field.add_field(&(psi[0]), eta, 1);
             metric_field.update_mesh();
 
-            MeshPartitionsRefinement Refiner(pragmatic_partitions[part_id]);
+            std::cerr << partition->get_number_elements() << " " << partition->get_number_nodes() << std::endl;
+
+            MeshPartitionsRefinement Refiner(pragmatic_partitions[part_id], nodes_partition_ids);
+        
 
             //TODO: REFINEMENT!!!*/
             //Refine<double, 2> adapt(*partition);

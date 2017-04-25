@@ -346,6 +346,13 @@ public:
         _ENList[eid*nloc+1] = tmp;
     }
 
+    //Sets Element in ENList
+    void set_element(const index_t eid, index_t n, int bdry, size_t i)
+    {
+      _ENList[eid*nloc+i]=n;
+      boundary[eid*nloc+i]=bdry;
+    }
+
     /// Return a pointer to the element-node list.
     inline const index_t *get_element(size_t eid) const
     {
@@ -470,6 +477,124 @@ public:
     {
         return NNList[n];
     }
+
+    ///Returns Node-Element list for specified node
+    inline std::set<index_t>& get_nelist(index_t node)  
+    {
+      return NEList[node];
+    }
+
+    //Return pointer to boundary
+    const int* get_boundary_ptr (size_t pos)
+    {
+      return &(boundary[pos]);
+    }
+
+    //Adds Vertex to NNList
+    inline void add_nnlist(size_t id, size_t add_id)
+    {
+      NNList[id].push_back(add_id);
+    }
+
+    //Removes Vertex from NNList
+    inline void remove_nnlist(size_t id, size_t rem_id)
+    {
+      std::vector<index_t>::iterator position = std::find(NNList[id].begin(), NNList[id].end(), rem_id);         
+      NNList[id].erase(position);
+    }
+
+    //Adds element to NEList
+    inline void add_nelist(size_t id, size_t add_id)
+    {
+      NEList[id].insert(add_id);
+    }
+
+    //Adds element to NEList and fix ID's
+    inline void add_nelist_fix(size_t id, size_t add_id, size_t threadIdx)
+    {
+      NEList[id].insert(add_id+threadIdx);
+    }
+
+    //Removes element from NEList
+    inline void remove_nelist(size_t id, size_t rem_id)
+    {
+      NEList[id].erase(rem_id);
+    }
+
+    //return property
+    void get_property(ElementProperty<double>*& prop)
+    {
+      prop = property;
+    }
+
+    //sets quality for an element
+    void set_quality(index_t element, double new_quality)
+    {
+      quality[element] = new_quality;
+    }
+
+    //Sets NNodes to new value (needed for Refinement procedure)
+    void set_nnodes(index_t nodes)
+    {
+        NNodes = nodes;
+    }
+
+    //Sets NElements to new value (needed for Refinement procedure)
+    void set_nelements(index_t elements)
+    {
+        NElements = elements;
+    }
+
+     //Resize Vectors
+    void resize_vectors(size_t dim)
+    {
+      size_t reserve = 1.1*NNodes; // extra space is required for centroidals
+      if(_coords.size()<reserve*dim) 
+      {
+            _coords.resize(reserve*dim);
+            metric.resize(reserve*msize);
+            NNList.resize(reserve);
+            NEList.resize(reserve);       
+      }
+    }
+
+    //add coords to coords vector
+    inline void add_coords(size_t threadIdx, std::vector<double>& new_coords, size_t dim, size_t splitCnt)
+    {
+      memcpy(&_coords[dim * threadIdx], &new_coords[0], dim*splitCnt*sizeof(double) );
+    }
+
+    //add metric to metric vector
+    inline void add_metric(size_t threadIdx, std::vector<double>& newMetric, size_t dim, size_t splitCnt)
+    {
+      memcpy(&metric[msize*threadIdx], &newMetric[0], msize*splitCnt*sizeof(double));
+    }
+
+    //add new elements to mesh
+    inline void add_elements(std::vector<index_t>& newElements, size_t splitCnt, size_t threadIdx)
+    {
+      memcpy(&_ENList[nloc*threadIdx], &newElements[0], nloc * splitCnt * sizeof(index_t) );
+    }
+
+    //add new boundaries to mesh
+    inline void add_boundaries(std::vector<int>& newBoundaries, size_t splitCnt, size_t threadIdx)
+    {
+      memcpy(&boundary[nloc*threadIdx], &newBoundaries[0], nloc * splitCnt * sizeof(int));
+    }
+
+    //add new qualities to mesh
+    inline void add_qualities(std::vector<double>& newQualities, size_t splitCnt, size_t threadIdx)
+    {
+      memcpy(&quality[threadIdx], &newQualities[0], splitCnt * sizeof(double));
+    }
+
+    //Return ENList size
+    size_t get_element_node_size()
+    {
+      return _ENList.size();
+    }
+    
+    //END OF MY IMPLEMENTATION
 
     /// Returns true if the node is in any of the partitioned elements.
     inline bool is_halo_node(index_t nid) const

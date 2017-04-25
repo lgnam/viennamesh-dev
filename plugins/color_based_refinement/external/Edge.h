@@ -194,6 +194,9 @@ public:
     template<typename _real_t, int _dim> friend class Swapping;
     template<typename _real_t, int _dim> friend class Refine;
 
+    //MY OWN IMPLEMENTATION
+    friend class MeshPartitionsRefinement;
+
 private:
     index_t id;
     std::pair<index_t, index_t> edge;
