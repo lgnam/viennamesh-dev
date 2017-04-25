@@ -5,12 +5,13 @@ int main(int argc, char *argv[])
 {
     // Check and read console input 
 	int region_count = 0;
+	int num_threads = 0;
 	std::string filename;
 
-	if (argc < 3)
+	if (argc < 4)
 	{
 		std::cout << "Parameters missing!" << std::endl;
-		std::cout << "Correct use of parameters: <input_file> <region_count> " << std::endl;
+		std::cout << "Correct use of parameters: <input_file> <region_count> <number_threads>" << std::endl;
 		return -1;
 	}
 
@@ -26,10 +27,17 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	else if (!atoi(argv[3]))
+	{
+		std::cout << "Parameter <num_threads> missing!" << std::endl;
+		return -1;
+	}
+
 	else
 	{
 		filename = argv[1];
 		region_count = atoi(argv[2]);
+		num_threads = atoi(argv[3]);
 	}
 
     // Create context handle
@@ -48,6 +56,7 @@ int main(int argc, char *argv[])
 	color.set_default_source(mesh_reader);
 	color.set_input("num_partitions", region_count);
 	color.set_input("filename", filename.c_str());
+	color.set_input("num_threads", num_threads);
 	color.run();
 //}
 	//Write output mesh

@@ -205,7 +205,7 @@ public:
         boundary.resize(NElements*nloc);
         std::fill(boundary.begin(), boundary.end(), -2);
 
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             if(ndims==2) {
                 // Check neighbourhood of each element
@@ -319,7 +319,7 @@ public:
     {
         // Sweep through boundary and set ids.
         size_t NElements = get_number_elements();
-	boundary.resize(NElements*nloc);
+	    boundary.resize(NElements*nloc);
         for(int i=0; i<NElements; i++) {
             for(int j=0; j<nloc; j++) {
                 boundary[i*nloc+j] = _boundary[i*nloc+j];
@@ -458,6 +458,17 @@ public:
     inline  int * get_boundaryTags() 
     {
       return boundary.data();
+    }
+
+    //MY IMPLEMENTATION
+    inline std::vector<int>& get_boundaryRef()
+    {
+        return boundary;
+    }
+    
+    inline std::vector<index_t>& get_nnlist(index_t n)
+    {
+        return NNList[n];
     }
 
     /// Returns true if the node is in any of the partitioned elements.

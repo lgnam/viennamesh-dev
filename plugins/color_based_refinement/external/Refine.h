@@ -144,7 +144,7 @@ public:
         size_t origNNodes = _mesh->get_number_nodes();
         size_t edgeSplitCnt = 0;
 
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             #pragma omp single nowait
             {
