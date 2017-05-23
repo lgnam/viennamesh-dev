@@ -27,12 +27,14 @@
 class MeshPartitionsRefinement{
 
     public:
-        MeshPartitionsRefinement(Mesh<double>*& mesh, std::vector<std::set<int>>& nodes_part_ids);           //Constructor
+        MeshPartitionsRefinement(Mesh<double>*& mesh, std::vector<std::set<int>>& nodes_part_ids,
+        std::unordered_map<int,int>& l2g_index_mapping);           //Constructor
         ~MeshPartitionsRefinement();                            //Destructor
 
     private:
         Mesh<double>* input_mesh;
         std::vector<std::set<int>> nodes_partition_ids;
+        std::unordered_map<int,int> local_to_global_index_mapping;
 
         //TODO: Update those 3 for 3D refinement
         size_t dim = 2;
@@ -92,9 +94,8 @@ class MeshPartitionsRefinement{
 //Constructor
 //
 //Tasks: TODO
-MeshPartitionsRefinement::MeshPartitionsRefinement(Mesh<double>*& mesh, std::vector<std::set<int>>& nodes_part_ids): input_mesh(mesh), 
-nodes_partition_ids(nodes_part_ids)
-
+MeshPartitionsRefinement::MeshPartitionsRefinement(Mesh<double>*& mesh, std::vector<std::set<int>>& nodes_part_ids,
+        std::unordered_map<int,int>& l2g_index_mapping): input_mesh(mesh), nodes_partition_ids(nodes_part_ids), local_to_global_index_mapping(l2g_index_mapping)
 {
     viennamesh::info(1) << "Calling MeshPartitionsRefinement Constructor" << std::endl;
 
@@ -183,18 +184,18 @@ bool MeshPartitionsRefinement::refine(double L_max)
     //i is local index!!!
     for (size_t i = 0; i < origNNodes; ++i)
     {
-        //DONT TOUCH BOUNDARY ELEMENTS!!!
-        /*if (nodes_partition_ids[i].size() > 1) 
-            continue;
-*/
         std::vector<index_t> NNList_i = input_mesh->get_nnlist(i);
 
         for (auto otherVertex : NNList_i) //otherVertex is already a global index
         {
-            if (i<otherVertex)
+            //DONT TOUCH BOUNDARY ELEMENTS!!!
+            /*if (nodes_partition_ids[ i ].size() > 1 && nodes_partition_ids[otherVertex].size() > 1) 
+                continue;
+            */
+            if ( local_to_global_index_mapping.at(i) < local_to_global_index_mapping.at(otherVertex) )
             {
                 double length = calc_edge_length(i, otherVertex);
-
+                std::cout << i << " " << otherVertex << ": " << length  << " " << L_max << std::endl;
                 if (length > L_max)
                 {
                     ++splitCnt;
@@ -204,13 +205,15 @@ bool MeshPartitionsRefinement::refine(double L_max)
         }
     }
 
+    std::cout << "splitCnt " << splitCnt << std::endl;
+
     //TODO: do omp atomic capture here!!!
     threadIdx = input_mesh->get_number_nodes();
     input_mesh->set_nnodes(threadIdx + splitCnt); 
 
     //Resize meshes vectors
     input_mesh->resize_vectors(dim);
-
+    
     //Append new coords, metric and appearance data to the mesh
     input_mesh->add_coords(threadIdx, newCoords, dim, splitCnt);
     input_mesh->add_metric(threadIdx, newMetric, msize, splitCnt);
@@ -269,7 +272,7 @@ bool MeshPartitionsRefinement::refine(double L_max)
     newQualities.reserve(origNElements);
 
     threadIdx = input_mesh->get_number_elements();
-    std::cerr<<"element refinement for " << origNElements << " elements" << std::endl;
+    
     //for loop over originalElements
     for (size_t eid = 0; eid < origNElements; ++eid)
     {
@@ -283,15 +286,12 @@ bool MeshPartitionsRefinement::refine(double L_max)
         {
             if (new_vertices_per_element[nedge*eid+j] != -1)
             {
-                std::cerr << eid << std::endl;
                 refine_element(eid);
                 break;
             }
         }
     }
     //end of for loop over origalElements
-
-    std::cerr << "TEST" << std::endl;
 
     //TODO: do omp atomic capture here!!!
     threadIdx = input_mesh->get_number_elements();
@@ -380,7 +380,7 @@ void MeshPartitionsRefinement::refine_edge(index_t n0, index_t n1)
 void MeshPartitionsRefinement::refine_element(size_t eid)
 {
   //works only for test case with partition0
-
+  
   const int* n = input_mesh->get_element(eid);
   
   // Note the order of the edges - the i'th edge is opposite the i'th node in the element.
@@ -388,10 +388,10 @@ void MeshPartitionsRefinement::refine_element(size_t eid)
   newVertex[0] = new_vertices_per_element[nedge*eid];
   newVertex[1] = new_vertices_per_element[nedge*eid+1];
   newVertex[2] = new_vertices_per_element[nedge*eid+2];
-/*
+
   std::cerr << eid << std::endl;
   std::cerr << " " << newVertex[0] << " " << newVertex[1] << " " << newVertex[2] << std::endl;
-*/
+
   int refine_cnt = 0;
   for(size_t i = 0; i < 3; ++i)
   {
@@ -411,12 +411,12 @@ void MeshPartitionsRefinement::refine_element(size_t eid)
 //MeshPartitions::refine2D_1
 void MeshPartitionsRefinement::refine2D_1(const index_t* newVertex, int eid)
 {
-    //std::cerr << "refine2D_1 " << eid << std::endl;
+    std::cerr << "refine2D_1 " << eid << std::endl;
 
     //single edge split
     const int* n = input_mesh->get_element(eid);  //works only in test case with partition0
     const int* boundary = input_mesh->get_boundary_ptr(eid*nloc);
-
+    std::cerr << n[0] << " " << n[1] << " " << n[2] << std::endl;
     int rotated_ele[3];
     int rotated_boundary[3];
     index_t vertexID = -1;
@@ -461,7 +461,7 @@ void MeshPartitionsRefinement::refine2D_1(const index_t* newVertex, int eid)
         input_mesh->add_nelist(rotated_ele[0], eid);
         input_mesh->add_nelist_fix(vertexID, ele1ID, threadIdx);
         //input_mesh->add_nelist(vertexID, ele1ID);
- std::cerr << "TEST" << std::endl;
+        std::cerr << "TEST" << std::endl;
         // Replace eid with ele1 in rotated_ele[2]'s NEList
         input_mesh->remove_nelist(rotated_ele[2], eid);
          std::cerr << "TEST" << std::endl;
@@ -712,6 +712,8 @@ double MeshPartitionsRefinement::calc_edge_length(index_t x0, index_t y0)
   double x = x_coords[0] - y_coords[0];
   double y = x_coords[1] - y_coords[1];
 
+  length = sqrt(x*x+y*y);
+
   // The l-2 norm can fail for anisotropic metrics. In such cases use the l-inf norm.
   double l2 = (m[1]*x + m[2]*y)*y + (m[0]*x + m[1]*y)*x;
 
@@ -767,7 +769,6 @@ double MeshPartitionsRefinement::calc_edge_length(index_t x0, index_t y0, double
       double linf = std::max((m[2]*y)*y, (m[0]*x)*x);
       length = sqrt(linf);
   }
-
   return length;
 }
 //end of MeshPartitionsRefinement::calc_edge_length(index x0, index y0, double* m)

@@ -94,7 +94,7 @@ public:
             bbox[i*2] = DBL_MAX;
             bbox[i*2+1] = -DBL_MAX;
         }
-        #pragma omp parallel num_threads(1)
+        #pragma omp parallel
         {
             double lbbox[dim*2];
             for(int i=0; i<dim; i++) {
@@ -140,7 +140,7 @@ public:
             _metric = new MetricTensor<real_t,dim>[_NNodes];
 
         if(dim==2) {
-            #pragma omp parallel num_threads(1)
+            #pragma omp parallel
             {
                 double alpha = pow(1.0/resolution_scaling_factor, 2);
                 #pragma omp for schedule(static)
@@ -157,7 +157,7 @@ public:
                 }
             }
         } else {
-            #pragma omp parallel num_threads(1)
+            #pragma omp parallel
             {
                 double alpha = pow(1.0/resolution_scaling_factor, 2);
                 #pragma omp for schedule(static)
@@ -392,7 +392,7 @@ public:
             exit(-1);
         } else {
             std::vector<double> SteinerMetricField(_NElements*6);
-            #pragma omp parallel num_threads(1)
+            #pragma omp parallel
             {
                 #pragma omp for schedule(static)
                 for(int i=0; i<_NElements; i++) {
@@ -434,7 +434,7 @@ public:
     void get_metric(real_t* metric)
     {
         // Enforce first-touch policy.
-        #pragma omp parallel num_threads(1)
+        #pragma omp parallel
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++) {
@@ -554,7 +554,7 @@ public:
 #endif
 
         // Enforce first-touch policy
-        #pragma omp parallel num_threads(1)
+        #pragma omp parallel
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++) {
@@ -599,6 +599,34 @@ public:
         // In 3D, the number of nodes is ~ 1/6 the number of elements.
         size_t pNNodes = std::max(pNElements/(dim==2?2:6), _mesh->get_number_nodes());
 
+        //MY IMPLEMENTATION
+        if (pNElements > 20*_mesh->NElements)
+        {  
+            /*
+            std::cerr << "pNElements too damn high: " << pNElements << std::endl;
+            std::cerr << "Change it to: " << 20*_mesh->NElements << std::endl;
+            */
+            pNElements = 20*_mesh->NElements;
+        }
+
+        if (pNNodes > 20*_mesh->NNodes)
+        {
+            /*
+            std::cerr << "pNNodes too damn high: " << pNNodes << std::endl;
+            std::cerr << "Change it to: " << 20*_mesh->NNodes << std::endl;
+            */
+            pNNodes = 20*_mesh->NNodes;
+        }
+        /*
+        auto total_mem = pNElements*(dim+1)*sizeof(index_t) + pNElements*(dim+1)*sizeof(int) + pNElements*sizeof(double) + pNElements*(dim)*sizeof(double)
+        + pNNodes*(dim==2?3:6)*sizeof(double) + pNNodes*sizeof(index_t) + pNNodes*sizeof(index_t) + pNNodes*sizeof(int) + pNNodes*sizeof(index_t);
+
+        std::cerr << "Total:      " << total_mem << " bytes" << std::endl;
+        std::cerr << "            " << total_mem / (1024) << " kilobytes" << std::endl; 
+        std::cerr << "            " << total_mem / (1024*1024) << " megabytes" << std::endl; 
+        std::cerr << "            " << total_mem / (1024*1024*1024) << " gigabytes" << std::endl; 
+        //END OF MY IMPLEMENTATION
+*/
         _mesh->_ENList.resize(pNElements*(dim+1));
         _mesh->boundary.resize(pNElements*(dim+1));
         _mesh->quality.resize(pNElements);
@@ -748,7 +776,7 @@ public:
             M[5] = m;
         }
 
-        #pragma omp parallel num_threads(1)
+        #pragma omp parallel
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++)
@@ -777,7 +805,7 @@ public:
             M[5] = m;
         }
 
-        #pragma omp parallel num_threads(1)
+        #pragma omp parallel
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++)
@@ -790,7 +818,7 @@ public:
      */
     void apply_min_edge_length(const real_t *min_len)
     {
-        #pragma omp parallel num_threads(1)
+        #pragma omp parallel
         {
             real_t M[dim==2?3:6];
             #pragma omp for schedule(static)
@@ -821,7 +849,7 @@ public:
      */
     void apply_max_aspect_ratio(real_t max_aspect_ratio)
     {
-        #pragma omp parallel num_threads(1)
+        #pragma omp parallel
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++)
@@ -857,8 +885,8 @@ public:
         double scale_factor = nelements/predict_nelements();
         if(dim==3)
             scale_factor = pow(scale_factor, 2.0/3.0);
- 
-        #pragma omp parallel num_threads(1)
+
+        #pragma omp parallel
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++)

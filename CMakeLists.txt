@@ -8,7 +8,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
 if (VIENNA_BUILD_IS_MAIN_PROJECT)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-  option(ENABLE_PEDANTIC_FLAGS "Enable pedantic compiler flags" ON)
+  option(ENABLE_PEDANTIC_FLAGS "Enable pedantic compiler flags" OFF)
   if(ENABLE_PEDANTIC_FLAGS)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic")
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -pedantic")

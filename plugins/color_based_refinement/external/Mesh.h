@@ -44,6 +44,7 @@
 #include <stack>
 #include <cmath>
 #include <stdint.h>
+#include <chrono>
 
 #ifdef HAVE_BOOST_UNORDERED_MAP_HPP
 #include <boost/unordered_map.hpp>
@@ -375,8 +376,10 @@ public:
     /// Return a reference to the ENList
     inline std::vector<int>& get_enlist()
     {
+        /*
         std::cout << "get_enlist()" << std::endl;
         std::cout << "check if color_based_refinement uses now the correct pragmatic header files and if the new pragmatic version works correctly with my code" << std::endl;
+        */
         return _ENList;
     }
 
@@ -990,7 +993,9 @@ public:
         assert(nid<(index_t)NNodes);
         std::set<index_t> patch;
         for(typename std::vector<index_t>::const_iterator it=NNList[nid].begin(); it!=NNList[nid].end(); ++it)
+        {
             patch.insert(patch.end(), *it);
+        }
         return patch;
     }
 
@@ -998,12 +1003,15 @@ public:
     std::set<index_t> get_node_patch(index_t nid, size_t min_patch_size)
     {
         std::set<index_t> patch = get_node_patch(nid);
-
+        //int ctr = 0;
         if(patch.size()<min_patch_size) {
             std::set<index_t> front = patch, new_front;
             for(;;) {
                 for(typename std::set<index_t>::const_iterator it=front.begin(); it!=front.end(); it++) {
                     for(typename std::vector<index_t>::const_iterator jt=NNList[*it].begin(); jt!=NNList[*it].end(); jt++) {
+                        /*++ctr;
+                        if (ctr > 1000)
+                            exit(0);*/
                         if(patch.find(*jt)==patch.end()) {
                             new_front.insert(*jt);
                             patch.insert(*jt);
@@ -1799,17 +1807,17 @@ private:
         }
 
         create_adjacency();
-	    
+
         create_global_node_numbering();
     }
 
     /// Create required adjacency lists.
     void create_adjacency()
     {
-	NNList.clear();
-	NNList.resize(NNodes);
-	NEList.clear();
-	NEList.resize(NNodes);
+        NNList.clear();
+        NNList.resize(NNodes);
+        NEList.clear();
+        NEList.resize(NNodes);
 
         for(size_t i=0; i<NElements; i++) {
             if(_ENList[i*nloc]<0)

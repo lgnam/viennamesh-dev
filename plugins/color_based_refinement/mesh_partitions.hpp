@@ -19,8 +19,10 @@
 //all other includes
 #include "metis.h"
 #include <unordered_map>
+#include <map>
 #include <numeric>  
 #include <chrono>
+#include <boost/container/flat_map.hpp>
 
 #include "mesh_partitions_refinement.hpp"
 
@@ -35,14 +37,15 @@ class MeshPartitions
 {
     public:
         MeshPartitions(Mesh<double> * const original_mesh, int num_regions,
-         std::string filename, int thread);                                                  //Constructor
+         std::string filename, int thread);                                                   //Constructor
         ~MeshPartitions();                                                                    //Destructor
 
         std::vector<Mesh<double>*> pragmatic_partitions;                                      //Vector containing pointers to the pragmatic partitions
 
         bool MetisPartitioning();                                                             //Partition mesh using metis
         bool CreatePragmaticDataStructures_ser();                                             //Create Pragmatic Meshes storing the mesh partitions in serial
-        bool CreatePragmaticDataStructures_par();                                             //Create Pragmatic Meshes storing the mesh partitions in parallel
+        bool CreatePragmaticDataStructures_par(std::vector<double>& timer_log, std::vector<double>& times, std::vector<double>& l2g_build, 
+                                                       std::vector<double>& l2g_access, std::vector<double>& g2l_build, std::vector<double>& g2l_access);               //Create Pragmatic Meshes storing the mesh partitions in parallel
         bool CreateNeighborhoodInformation();                                                 //Create neighborhood information for vertices and partitions
         bool ColorPartitions();                                                               //Color the partitions
         bool WritePartitions();                                                               //ONLY FOR DEBUGGING!
@@ -53,6 +56,7 @@ class MeshPartitions
         int get_colors(){return colors;};
         int get_max(){return max;};
         std::vector<std::vector<int>>& get_color_partitions() {return color_partitions;};
+        void GetRefinementStats(int* nodes, int* elements);
 
     private:
 /*
@@ -67,6 +71,7 @@ class MeshPartitions
         Mesh<double>* original_mesh;
         int num_regions;
         int nthreads;
+        std::string file;
 
         //Variables for Metis   
         std::vector<idx_t> eptr;
@@ -124,10 +129,57 @@ class MeshPartitions
 //Tasks: TODO
 //MeshPartitions::MeshPartitions(Mesh<double>* original_mesh, int num_regions, std::string filename)
 MeshPartitions::MeshPartitions(Mesh<double> * const orig_mesh, int nregions, std::string filename, int threads)
-{    
+{   /*
+    ofstream memout;
+    memout.open("memout.csv", ios::app);
+    memout << filename << ", ";
+    memout.close();
+    
+    //Create metric field
+    MetricField<double,2> metric_field(*orig_mesh);
+
+    double eta = 0.0001;
+    std::vector<double> psi(orig_mesh->get_number_nodes());
+
+    for (size_t i = 0; i < orig_mesh->get_number_nodes(); ++i)
+    {
+        //std::cerr << i << "/" << orig_mesh->get_number_nodes() << std::endl;
+        
+        double x = 2*orig_mesh->get_coords(i)[0];
+        double y = 2*orig_mesh->get_coords(i)[1];
+        psi[i] = 0.100000000000000*sin(50*x) + atan2(-0.100000000000000, (double)(2*x - sin(5*y)));
+        /*
+        double x = partition->get_coords(i)[0];
+        double y = partition->get_coords(i)[1];
+        psi[i] = x*y;
+        
+        psi[i]=10;
+        //*/
+/*    }
+    std::cerr << "add_field" << std::endl;
+    metric_field.add_field(&(psi[0]), eta, 1);
+    std::cerr << "update_mesh" << std::endl;
+    metric_field.update_mesh();
+    std::cerr << "wow" << std::endl;
+/*
+    MetricField<double,2> metric_field(*orig_mesh);
+
+    size_t NNodes = orig_mesh->get_number_nodes();
+    for(size_t i=0; i<NNodes; i++) {
+        //double psi = orig_mesh->get_coords(i)[0] * orig_mesh->get_coords(i)[1];
+        double x = orig_mesh->get_coords(i)[0];
+        double y = orig_mesh->get_coords(i)[1];
+        //std::cerr << x << " " << y << " " << x*y << std::endl;
+        double m[] = {0.0000000000001, 0.0, 0.0000000000001};
+        metric_field.set_metric(m, i);
+    }
+    metric_field.update_mesh();
+    */
     original_mesh = orig_mesh;
     num_regions = nregions;
     nthreads = threads;
+    file = filename;
+
     /* 
     auto overall_tic = std::chrono::system_clock::now();
 
@@ -184,8 +236,8 @@ bool MeshPartitions::MetisPartitioning()
     //get basic mesh information
     num_elements = original_mesh->get_number_elements();
     num_nodes = original_mesh->get_number_nodes();
-    //ncommon = mesh->get_number_dimensions();
-   // std::vector<idx_t> bdry = mesh->copy_boundary_vector();
+    ncommon = original_mesh->get_number_dimensions();
+   // std::vector<idx_t> bdry = original_mesh->copy_boundary_vector();
    // size_t num_bdry_nodes = std::accumulate(bdry.begin(), bdry.end(), 0);
    // idx_t numflag = 0;     //0...C-style numbering is assumed that starts from 0; 1...Fortran-style numbering is assumed that starts from 1
 
@@ -236,7 +288,6 @@ bool MeshPartitions::MetisPartitioning()
     }
     outfile.close();
     //END OF DEBUG*/
-
     //Call Metis Partitioning Function (see metis manual for details on the parameters and on the use of the metis API)
     /*METIS_PartMeshDual (&num_elements,
                         &num_nodes,
@@ -250,7 +301,8 @@ bool MeshPartitions::MetisPartitioning()
                         NULL,
                         &result,
                         epart.data(),
-                        npart.data());*/
+                        npart.data());
+                        //*/
 
    METIS_PartMeshNodal(&num_elements,
                         &num_nodes,
@@ -265,7 +317,7 @@ bool MeshPartitions::MetisPartitioning()
                         epart.data(),
                         npart.data());
 
-/*
+    /*
     METIS_MeshToDual(&num_elements,
                      &num_nodes,
                      eptr.data(),
@@ -327,12 +379,12 @@ bool MeshPartitions::CreateNeighborhoodInformation()
     {
       nodes_partition_ids[*(element_ptr++)].insert(epart[i]);
     }
-/*
+
     //DEBUG
     if (epart[i] > max)
       max = epart[i];
     //END OF DEBUG
-*/
+
   }
 
   //create partition adjacency information
@@ -440,8 +492,8 @@ bool MeshPartitions::ColorPartitions()
     }
 
     //DEBUG
-    //std::cout << "Number of used colors: " << colors << std::endl;
-  /*  std::cout << "  Partition | Color " << std::endl;
+   /* //std::cout << "Number of used colors: " << colors << std::endl;
+   std::cout << "  Partition | Color " << std::endl;
  
     for (size_t i = 0; i < partition_colors.size(); ++i)
     {
@@ -452,8 +504,8 @@ bool MeshPartitions::ColorPartitions()
  
     for (size_t i = 0; i < color_partitions.size(); ++i)
     {
-        //std::cout << "          " << i << " | " << color_partitions[i].size() << std::endl;
-    
+        std::cout << "          " << i << " | " << color_partitions[i].size() << std::endl;
+    /*
         std::cout << "          " << i << " | ";
         for (auto it : color_partitions[i])
         {
@@ -522,6 +574,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_ser()
         //get the vertex-to-index-mapping between old and new indices
         //and additionally the index-to-vertex-mapping
         //TODO: use unordered_map instead, to speed up the code
+
         std::unordered_map <index_t, index_t> global_to_local_index_map;
         std::unordered_map <index_t, index_t> local_to_global_index_map;
 
@@ -578,9 +631,54 @@ bool MeshPartitions::CreatePragmaticDataStructures_ser()
         //mesh = new Mesh<double> ( num_points, num_cells, &(ENLists_regions[region.id()][0]) ,&(x_coords[region.id()][0]), &(y_coords[region.id()][0]), &(z_coords[region.id()][0]) );        
         partition_mesh = new Mesh<double> ( num_points, num_cells, &(ENLists_partitions[i][0]), &(x_coords[i][0]), &(y_coords[i][0]) );
         partition_mesh->create_boundary();
-
         pragmatic_partitions.push_back(partition_mesh);
+
+        //Create metric field
+        MetricField<double,2> metric_field(*partition_mesh);
+
+        double eta = 0.0001;
+        std::vector<double> psi(num_points);
+
+        for (size_t i = 0; i < num_points; ++i)
+        {
+            //double x = 2*partition->get_coords(i)[0]-1;
+            //double y = 2*partition->get_coords(i)[1]-1;
+            double x = partition_mesh->get_coords(i)[0];
+            double y = partition_mesh->get_coords(i)[1];
     
+            psi[i] = 0.100000000000000*sin(50*x) + atan2(-0.100000000000000, (double)(2*x - sin(5*y)));
+            //psi[i] = 800000000000;
+        }
+        
+        metric_field.add_field(&(psi[0]), eta, 1);
+        metric_field.update_mesh();
+
+        //Create boundary information for refinement algorithm 
+        std::vector<int> bdry = partition_mesh->get_boundaryRef();
+        std::vector<int> boundary_nodes(partition_mesh->get_number_nodes(), 0);
+
+        for (size_t eid = 0; eid < partition_mesh->get_number_elements(); ++eid)
+        {
+            const int *n = partition_mesh->get_element(eid);
+            const int *boundary=&(bdry[eid*3]);
+
+            //-1 means element is marked for deletion
+            if(n[0]==-1)
+                continue;
+
+            if( partition_mesh->get_number_dimensions() == 2 ) 
+            {
+                for(int j=0; j<3; j++) 
+                {
+                    boundary_nodes[n[(j+1)%3]] = std::max(boundary_nodes[n[(j+1)%3]], bdry[eid*3+j]);
+                    boundary_nodes[n[(j+2)%3]] = std::max(boundary_nodes[n[(j+2)%3]], bdry[eid*3+j]);
+                }
+            }
+        }
+
+        Refine<double,2> refiner(*partition_mesh);
+        //refiner.refine(0.5, nodes_partition_ids, local_to_global_index_map);
+
         //delete partial_mesh;        //TODO: creates segfault if comments are removed
     } 
     //end of loop over all partitions
@@ -614,113 +712,164 @@ bool MeshPartitions::CreatePragmaticDataStructures_ser()
 //Tasks: Get and order data needed to create a pragmatic data structure for each partition
 //Runs in parallel
 //bool MeshPartitions::CreatePragmaticDataStructures_par(Mesh<double>* const original_mesh, int num_regions)
-bool MeshPartitions::CreatePragmaticDataStructures_par()
-{
+bool MeshPartitions::CreatePragmaticDataStructures_par(std::vector<double>& timer_log, std::vector<double>& times, std::vector<double>& l2g_build, 
+                                                       std::vector<double>& l2g_access, std::vector<double>& g2l_build, std::vector<double>& g2l_access)
+{    
+    timer_log.resize(nthreads);
+    std::fill(timer_log.begin(), timer_log.end(), 0.0);
+/*
+    //debug 
+    l2g_build.resize(nthreads);
+    l2g_access.resize(nthreads);
+    g2l_build.resize(nthreads);
+    g2l_access.resize(nthreads);
+
+    std::fill(l2g_build.begin(), l2g_build.end(), 0.0);
+    std::fill(l2g_access.begin(), l2g_access.end(), 0.0);
+    std::fill(g2l_build.begin(), g2l_build.end(), 0.0);
+    std::fill(g2l_access.begin(), g2l_access.end(), 0.0);
+    //end of debug
+*/
+    auto prep_tic = std::chrono::system_clock::now();
+
     std::vector<int> _ENList_orig = original_mesh->get_enlist();
-    std::vector<std::set<int>> nodes_part(num_regions);
     std::vector<std::set<int>> elements_part(num_regions);
 
-    global_to_local_index_mappings.resize(num_regions);
-    local_to_global_index_mappings.resize(num_regions);
-    global_to_local_element_mappings.resize(num_regions);
-    local_to_global_element_mappings.resize(num_regions);
+    nodes_per_partition.resize(num_regions);
+
+
     pragmatic_partitions.resize(num_regions);
 
-    //DEBUG
-    std::vector<std::vector<int>> threads(2);
-    //END OF DEBUG
+    //test: use vectors instead of unordered maps!
+    //std::vector<std::vector<int>> g2l_vertices(num_regions);
+    //std::vector<std::vector<int>> l2g_vertices(num_regions);
+
+    //get vertices and elements from original mesh
+    auto nodes_part_tic = std::chrono::system_clock::now();
+
+    for (size_t ele_id = 0; ele_id < original_mesh->get_number_elements(); ++ele_id)
+    {
+        nodes_per_partition[ epart[ele_id] ].insert( _ENList_orig[3*ele_id] );
+        nodes_per_partition[ epart[ele_id] ].insert( _ENList_orig[3*ele_id+1] );
+        nodes_per_partition[ epart[ele_id] ].insert( _ENList_orig[3*ele_id+2] );
+        elements_part[ epart[ele_id] ].insert(ele_id);
+    }
+
+    std::chrono::duration<double> nodes_part_time = std::chrono::system_clock::now() - nodes_part_tic;
+
+    std::chrono::duration<double> prep_time = std::chrono::system_clock::now() - prep_tic;
+
+    times[0] += prep_time.count();
+    times[1] += nodes_part_time.count();
 
     //iterate colors
     for (size_t color = 0; color < colors; color++)
     {
-        //std::cerr << "color " << color << " has " << color_partitions[color].size() << " partitions" << std::endl;
-        #pragma omp parallel for schedule(static) num_threads(1)
+        #pragma omp parallel for schedule(static) num_threads(nthreads)
         for (size_t part_iter = 0; part_iter < color_partitions[color].size(); ++part_iter)
         {
+            auto omp_tic = omp_get_wtime();
+            
             size_t part_id = color_partitions[color][part_iter];
-            
-            //get vertices and elements from original mesh
-            for(size_t ele_id = 0; ele_id < original_mesh->get_number_elements(); ele_id++)
-            {
-                if (epart[ele_id] == part_id)
-                {
-                    //TODO: Update for 3D case!!!
-                    nodes_part[part_id].insert(_ENList_orig[3*ele_id]);
-                    nodes_part[part_id].insert(_ENList_orig[3*ele_id+1]);
-                    nodes_part[part_id].insert(_ENList_orig[3*ele_id+2]);
-                    elements_part[part_id].insert(ele_id);
-                }
-            }
-            
+            //std::cerr << part_id << std::endl;
+
             //get number of vertices and elements of the local partitions
-            int num_points = nodes_part[part_id].size();
+            int num_points = nodes_per_partition[part_id].size();
             int num_elements = elements_part[part_id].size();
             
             //create coordinate vectors, g2l- and l2g-index-mappings for the vertices
-            std::unordered_map<int, int> g2l_tmp, l2g_tmp;
+            //std::unordered_map<int, int> g2l_tmp, l2g_tmp;
+            std::unordered_map<int, int> g2l_tmp;
+            //std::map<int,int> l2g_tmp, g2l_tmp;
+            //std::map<int,int> g2l_tmp;
+            //std::unordered_map<int,int> l2g_tmp;
+
+            //boost::container::flat_map<int,int, std::less<int>> g2l_tmp;
+
+            //test: use vector instead of unordered maps!
+            std::vector<int> l2g_tmp(num_points);
+
             int new_vertex_id = 0;    //new vertex id for local partition
-            int ctr = 0;
             
+            auto coords_tic = std::chrono::system_clock::now();
+
             //coords vector
             std::vector<double> x_coords(num_points);
             std::vector<double> y_coords(num_points); 
-            
-            for (auto it : nodes_part[part_id])
+
+            double l2g_time {0.0};
+            double g2l_time {0.0};
+
+            for (auto it : nodes_per_partition[part_id])
             {
                 double p[2];
                 original_mesh->get_coords( it, p);
                 
-                x_coords[ctr] = p[0];
-                y_coords[ctr] = p[1];
+                x_coords[new_vertex_id] = p[0];
+                y_coords[new_vertex_id] = p[1];
                 //TODO: Update for 3d case!
 
+                auto g2l_tic = std::chrono::system_clock::now();
                 g2l_tmp.insert( std::make_pair(it, new_vertex_id) );
-                l2g_tmp.insert( std::make_pair(new_vertex_id++, it) );
+                std::chrono::duration<double> g2l_dur = std::chrono::system_clock::now() - g2l_tic;
+                g2l_time += g2l_dur.count();             
 
-                ++ctr;
+                auto l2g_tic = std::chrono::system_clock::now();
+                l2g_tmp[new_vertex_id++] = it;
+                std::chrono::duration<double> l2g_dur = std::chrono::system_clock::now() - l2g_tic;
+                l2g_time += l2g_dur.count();
             }
-            
-            //put the index mappings into the global vectors
-            global_to_local_index_mappings[part_id] = g2l_tmp;
-            local_to_global_index_mappings[part_id] = l2g_tmp;
 
+            std::chrono::duration<double> coords_time = std::chrono::system_clock::now() - coords_tic;
+            times[2] += g2l_time;
+            times[3] += l2g_time;
+            times[4] += coords_time.count();
+/*
+            g2l_build[omp_get_thread_num()] += g2l_time;
+            l2g_build[omp_get_thread_num()] += l2g_time;
+*/
             //Create ENLists for local partition and the element-index-mappings
-            std::unordered_map<int, int> g2l_ele_tmp, l2g_ele_tmp;
-            ctr = 0;
+            auto enlist_tic = std::chrono::system_clock::now();
 
+            int ctr = 0;
             std::vector<int> ENList_part(3*num_elements);
 
             for (auto it : elements_part[part_id])
-            {
-                g2l_ele_tmp.insert( std::make_pair(it, ctr/3) );
-                l2g_ele_tmp.insert( std::make_pair(ctr/3, it) );
-
-                const index_t *element_ptr = nullptr;
+            {                 
+                const int *element_ptr = nullptr;
                 element_ptr = original_mesh->get_element(it);
-
+                
                 ENList_part[ctr++] = g2l_tmp[*(element_ptr++)];
                 ENList_part[ctr++] = g2l_tmp[*(element_ptr++)];
                 ENList_part[ctr++] = g2l_tmp[*(element_ptr++)]; //three times for triangles
                 //TODO: Update for 3D case!!!
             }
 
-            //put the element mappings into the global vectors
-            global_to_local_element_mappings[part_id] = g2l_ele_tmp;
-            local_to_global_element_mappings[part_id] = l2g_ele_tmp;
+            std::chrono::duration<double> enlist_time = std::chrono::system_clock::now() - enlist_tic;
+            times[5] += enlist_time.count();
+            //g2l_access[omp_get_thread_num()] += enlist_time.count();
 
             //create pragamtic data structure, the partition boundary and put it into the partition vector
+            auto mesh_tic = std::chrono::system_clock::now();
             Mesh<double>* partition = nullptr;
-            partition = new Mesh<double>( num_points, num_elements, &(ENList_part[0]), &(x_coords[0]), &(y_coords[0]));
+
+            partition = new Mesh<double>(num_points, num_elements, &(ENList_part[0]), &(x_coords[0]), &(y_coords[0]));
+
+            auto boundary_tic = std::chrono::system_clock::now();
             partition->create_boundary();
+            std::chrono::duration<double> boundary_time = std::chrono::system_clock::now() - boundary_tic;
 
             pragmatic_partitions[part_id] = partition;
-            
-            //TODO: GHOSTING!!!
-            //std::cerr << "Ghosting is still waiting for implementation!" << std::endl;
-
+            std::chrono::duration<double> mesh_time = std::chrono::system_clock::now() - mesh_tic;
+         
+            times[6] += mesh_time.count();
+            times[7] += boundary_time.count();
+        
             //Create metric field
-            MetricField<double,2> metric_field(*partition);
+            auto metric_tic = std::chrono::system_clock::now();
 
+            MetricField<double,2> metric_field(*partition);
+/*
             double eta = 0.0001;
             std::vector<double> psi(num_points);
 
@@ -728,43 +877,54 @@ bool MeshPartitions::CreatePragmaticDataStructures_par()
             {
                 //double x = 2*partition->get_coords(i)[0]-1;
                 //double y = 2*partition->get_coords(i)[1]-1;
+                double x = partition->get_coords(i)[0];
+                double y = partition->get_coords(i)[1];
         
-                //psi[i] = 0.100000000000000*sin(50*x) + atan2(-0.100000000000000, (double)(2*x - sin(5*y)));
-                psi[i] = 0.0001;
+                psi[i] = 0.100000000000000*sin(50*x) + atan2(-0.100000000000000, (double)(2*x - sin(5*y)));
+                //psi[i] = 800000000000;
             }
-
+            
             metric_field.add_field(&(psi[0]), eta, 1);
+  */
+
+            for (auto i {0}; i < num_points; ++i)
+            {
+                double m[] = {1.0, 1.0, 0.0};
+                metric_field.set_metric(m, i);
+            }
+            //
+            auto metric_update_tic = std::chrono::system_clock::now();
             metric_field.update_mesh();
+            std::chrono::duration<double> metric_update_time = std::chrono::system_clock::now() - metric_update_tic;
 
-            std::cerr << partition->get_number_elements() << " " << partition->get_number_nodes() << std::endl;
+            std::chrono::duration<double> metric_time = std::chrono::system_clock::now() - metric_tic;
 
-            MeshPartitionsRefinement Refiner(pragmatic_partitions[part_id], nodes_partition_ids);
-        
+            times[8] += metric_time.count();
+            times[9] += metric_update_time.count();
+   
+            double int_check_time {0.0};
+            auto refine_tic = std::chrono::system_clock::now();
+            Refine<double,2> refiner(*partition);
+            std::chrono::duration<double> create_refine_time = std::chrono::system_clock::now() - refine_tic;
 
-            //TODO: REFINEMENT!!!*/
-            //Refine<double, 2> adapt(*partition);
-/*
-            if (RefinementKernel(part_id, sqrt(2.0)))
-                std::cerr << "Refinement OK" << std::endl;
+            refiner.refine(0.5, nodes_partition_ids, l2g_tmp, &int_check_time);   
 
-            else 
-                std::cerr << "Refinement Error" << std::endl;
-                */
+            std::chrono::duration<double> refine_time = std::chrono::system_clock::now() - refine_tic; 
+            //l2g_access[omp_get_thread_num()] += int_check_time;
+            
+            times[10] += int_check_time;     
+            times[11] += refine_time.count();
+            times[12] += create_refine_time.count();
+            
+            auto omp_toc = omp_get_wtime();
+
+            timer_log[omp_get_thread_num()]+= omp_toc - omp_tic;
         }
         //end parallel for loop
     } //end for loop colors
+    viennamesh::info(1) << "Successfully adapted the mesh" << std::endl;
+    std::cerr << "vector unordered_map" << std::endl;
 
-   /* //DEBUG
-    for (size_t i =0; i < threads.size(); ++i)
-    {
-        std::cerr << "Thread " << i << ": " << std::endl;
-
-        for (auto it : threads[i])
-        {
-            std::cerr << "  " << it << std::endl;
-        }
-    }
-    //END OF DEBUG*/
     return true;
 }
 //end of CreatePragmaticDataStructures_par
@@ -777,6 +937,7 @@ bool MeshPartitions::WritePartitions()
     viennamesh::info(1) << "Write " << pragmatic_partitions.size() << " partitions" << std::endl;
 
     //write partitions
+    #pragma omp parallel for num_threads(8)
     for (size_t i = 0; i < pragmatic_partitions.size(); ++i)
     {
         std::cout << "Writing partition " << i << std::endl;
@@ -812,53 +973,6 @@ bool MeshPartitions::RefineInterior()
 bool MeshPartitions::WriteMergedMesh(std::string filename)
 {
     std::cerr << "WriteMergedMesh()" << std::endl;
-/*
-    std::cerr << "get boundary info" << std::endl; 
-
-    int nfacets;
-    //std::vector<int> facets(original_mesh->get_number_elements() * (original_mesh->get_number_dimensions()+1));
-    //std::vector<int> ids(original_mesh->get_number_elements() * (original_mesh->get_number_dimensions()+1));
-    const int* facets = new int [original_mesh->get_number_elements() * (original_mesh->get_number_dimensions()+1)];
-    const int* ids = new int [original_mesh->get_number_elements() * (original_mesh->get_number_dimensions()+1)];
-
-    pragmatic_partitions[0]->get_boundary(&nfacets, &(facets), &(ids));
-
-    for (size_t i = 0; i < nfacets; ++i)
-    {
-        std::cerr << i << ": " << facets[2*i] << " " << facets[2*i+1] << std::endl;
-    }
-*/
-    /*
-    //create merged ENList
-    std::vector<index_t> merged_ENList(original_mesh->num_elements*3);
-
-    //iterate over partitions
-    int global_element_counter = 0;
-    for (size_t i = 0; i < pragmatic_partitions.size(); ++i)  
-    {
-        for (size_t j = 0; j < pragmatic_partitions[i]->get_number_elements(); ++j)
-        {
-            const index_t *element_ptr = nullptr;
-            element_ptr = pragmatic_partitions[i]->get_element(j);
-
-            merged_ENList[3*global_element_counter  ] = local_to_global_index_mappings[i].at( *(element_ptr++) );
-            merged_ENList[3*global_element_counter+1] = local_to_global_index_mappings[i].at( *(element_ptr++) );
-            merged_ENList[3*global_element_counter+2] = local_to_global_index_mappings[i].at( *(element_ptr++) );  
-            ++global_element_counter;
-        }
-    }
-    //end of create merged ENList
-
-    //ofstream object
-    ofstream writer;
-    writer.open(filename.c_str(), ios::out);
-
-    //write header
-    writer << "<?xml version=\"1.0\"?>" << std::endl;
-    writer << "<VTKFile type=\"UnstructuredGrid\" version=\"1.0\" byte_order=\"LittleEndian\">" << std::endl;
-    writer << " <UnstructuredGrid>" << std::endl;
-    //end of write header
-    */
     return true;
 }
 //end of WriteMergedMesh
@@ -1063,6 +1177,20 @@ void MeshPartitions::refine_edge_part(index_t n0, index_t n1, int part_id)
 }
 //end of void GroupedPartitionsRefinement::refine_edge_part(index_t x, index_t y, int part)
 */
+
+void MeshPartitions::GetRefinementStats(int* nodes, int* elements)
+{
+    int tmp_nodes {0};
+    int tmp_elements {0};
+    for (size_t i =0; i < pragmatic_partitions.size(); ++i)
+    {
+        tmp_nodes += pragmatic_partitions[i]->get_number_nodes();
+        tmp_elements += pragmatic_partitions[i]->get_number_elements();
+    }
+
+    *nodes = tmp_nodes;
+    *elements = tmp_elements;
+}
 //----------------------------------------------------------------------------------------------------------------------------------------------//
 //                                                                     End                                                                      //
 //----------------------------------------------------------------------------------------------------------------------------------------------//

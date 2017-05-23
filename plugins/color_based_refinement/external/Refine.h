@@ -50,6 +50,9 @@
 #include "ElementProperty.h"
 #include "Mesh.h"
 
+//my own implementation
+#include <unordered_map>
+
 /*! \brief Performs 2D/3D mesh refinement.
  *
  */
@@ -138,12 +141,39 @@ public:
      * three-dimensional unstructured grids", Applied Numerical
      * Mathematics, Volume 13, Issue 6, February 1994, Pages 437-452.
      */
-    void refine(real_t L_max)
+    //void refine(real_t L_max, std::vector<std::set<int>>& nodes_part_ids, std::map<int,int>& l2g, double *int_check)
+    void refine(real_t L_max, std::vector<std::set<int>>& nodes_part_ids, std::vector<int>& l2g, double *int_check)
     {
         size_t origNElements = _mesh->get_number_elements();
         size_t origNNodes = _mesh->get_number_nodes();
         size_t edgeSplitCnt = 0;
 
+      /*  //my implementation
+        //create boundary nodes info
+        std::vector<int> boundary_nodes(origNNodes, 0);
+
+        for (size_t eid = 0; eid < origNElements; ++eid)
+        {
+            const int *n = _mesh->get_element(eid);
+            //const int *boundary=&(_mesh->boundary[eid*3]);
+
+            //-1 means element is marked for deletion
+            if(n[0]==-1)
+                continue;
+
+            if( dim == 2 ) 
+            {
+                for(int j=0; j<3; j++) 
+                {
+                    boundary_nodes[n[(j+1)%3]] = std::max(boundary_nodes[n[(j+1)%3]], _mesh->boundary[eid*3+j]);
+                    boundary_nodes[n[(j+2)%3]] = std::max(boundary_nodes[n[(j+2)%3]], _mesh->boundary[eid*3+j]);
+                }
+            }
+        }
+
+        std::vector<int> bdry = _mesh->get_boundaryRef();
+        //End of My implementation
+        */
         #pragma omp parallel num_threads(1)
         {
             #pragma omp single nowait
@@ -175,6 +205,37 @@ public:
                 for(size_t it=0; it<_mesh->NNList[i].size(); ++it) {
                     index_t otherVertex = _mesh->NNList[i][it];
                     assert(otherVertex>=0);
+
+                    //MY OWN IMPLEMENTATION
+                    /*
+                    if ( (boundary_nodes[i] == 1 && boundary_nodes[otherVertex] == 1) )
+                    {
+                        if ( (nodes_part_ids[l2g.at(i)].size() > 1) && (nodes_part_ids[l2g.at(otherVertex)].size() > 1) )
+                        {
+                            //std::cerr << i << " and " << otherVertex << " on interface!" << std::endl;
+                            continue;
+                        }
+
+                        //std::cerr << i << " and " << otherVertex << " not on interface!" << std::endl;
+                    }
+                    */
+                    auto interface_tic = std::chrono::system_clock::now();
+                    //if ( (nodes_part_ids[l2g.at(i)].size() > 1) && (nodes_part_ids[l2g.at(otherVertex)].size() > 1) )
+                    if ( (nodes_part_ids[l2g[i]].size() > 1) && (nodes_part_ids[l2g[otherVertex]].size() > 1) )
+                    {
+                        std::set<int> neighbours;
+                        set_intersection(_mesh->NEList[i].begin(), _mesh->NEList[i].end(),
+                                         _mesh->NEList[otherVertex].begin(), _mesh->NEList[otherVertex].end(),
+                                         inserter(neighbours, neighbours.begin()));
+
+                            if (neighbours.size() != 2 )
+                            {
+                                continue;
+                            }
+                    }
+                    std::chrono::duration<double> interface_dur = std::chrono::system_clock::now() - interface_tic;
+                    *int_check += interface_dur.count();
+                    //END OF MY OWN IMPLEMENTATION
 
                     /* Conditional statement ensures that the edge length is only calculated once.
                      * By ordering the vertices according to their gnn, we ensure that all processes
