@@ -91,7 +91,6 @@ namespace viennamesh
 
     viennamesh_error convert(pragmatic::pragmatic_mesh const & input, viennagrid::mesh & output)
     {
-
         //ViennaGrid typedefs
         typedef viennagrid::mesh                                                        MeshType;
 
@@ -114,7 +113,14 @@ namespace viennamesh
         for (size_t i = 0; i < NElements; ++i)
         {
             index_t const* ENList_ptr = input->get_element(i); 
-            viennagrid::make_triangle( output, vertex_handles[*(ENList_ptr++)], vertex_handles[*(ENList_ptr++)], vertex_handles[*(ENList_ptr++)] );
+            if (input->get_number_dimensions() == 2)
+                viennagrid::make_triangle( output, vertex_handles[*(ENList_ptr++)], vertex_handles[*(ENList_ptr++)], vertex_handles[*(ENList_ptr++)] );
+
+            else
+            {
+                std::cout << "3DIM" << std::endl;
+                return 0;
+            }
         } //end of iterating all pragmatic elements
 
         return VIENNAMESH_SUCCESS;

@@ -53,7 +53,10 @@
 //my own implementation
 #include <unordered_map>
 
-/*! \brief Performs 2D/3D mesh refinement.
+//#include "../mesh_partitions.hpp"
+#include "../outbox.hpp"
+
+/*! \brief Performs 2D/3D mesh refinement
  *
  */
 template<typename real_t, int dim> class Refine
@@ -142,7 +145,9 @@ public:
      * Mathematics, Volume 13, Issue 6, February 1994, Pages 437-452.
      */
     //void refine(real_t L_max, std::vector<std::set<int>>& nodes_part_ids, std::map<int,int>& l2g, double *int_check)
-    void refine(real_t L_max, std::vector<std::set<int>>& nodes_part_ids, std::vector<int>& l2g, double *int_check)
+    void refine(real_t L_max, std::vector<std::set<int>>& nodes_part_ids, std::vector<int>& l2g_vertices, std::unordered_map<int,int>& g2l_vertices, 
+                 std::vector<int>& l2g_elements, std::unordered_map<int,int>& g2l_elements, double *int_check, int &glob_NNodes, int &glob_NElements,
+                 const int part_id, Outbox& outbox_data, std::vector<Outbox>& outboxes, std::vector<int>& partition_colors, std::set<int>& partition_adjcy )
     {
         size_t origNElements = _mesh->get_number_elements();
         size_t origNNodes = _mesh->get_number_nodes();
@@ -176,6 +181,10 @@ public:
         */
         #pragma omp parallel num_threads(1)
         {
+            auto det_0 = std::chrono::system_clock::now();
+            bool is_on_interface = false;
+            bool is_in_outbox = false;
+
             #pragma omp single nowait
             {
                 new_vertices_per_element.resize(nedge*origNElements);
@@ -207,6 +216,9 @@ public:
                     assert(otherVertex>=0);
 
                     //MY OWN IMPLEMENTATION
+                    is_on_interface=false;
+
+
                     /*
                     if ( (boundary_nodes[i] == 1 && boundary_nodes[otherVertex] == 1) )
                     {
@@ -219,23 +231,27 @@ public:
                         //std::cerr << i << " and " << otherVertex << " not on interface!" << std::endl;
                     }
                     */
-                    auto interface_tic = std::chrono::system_clock::now();
-                    //if ( (nodes_part_ids[l2g.at(i)].size() > 1) && (nodes_part_ids[l2g.at(otherVertex)].size() > 1) )
-                    if ( (nodes_part_ids[l2g[i]].size() > 1) && (nodes_part_ids[l2g[otherVertex]].size() > 1) )
+                    //auto interface_tic = std::chrono::system_clock::now();
+                    //if ( (nodes_part_ids[l2g_vertices.at(i)].size() > 1) && (nodes_part_ids[l2g_vertices.at(otherVertex)].size() > 1) )
+                    if ( (nodes_part_ids[l2g_vertices[i]].size() > 1) && (nodes_part_ids[l2g_vertices[otherVertex]].size() > 1) )
                     {
                         std::set<int> neighbours;
                         set_intersection(_mesh->NEList[i].begin(), _mesh->NEList[i].end(),
                                          _mesh->NEList[otherVertex].begin(), _mesh->NEList[otherVertex].end(),
                                          inserter(neighbours, neighbours.begin()));
 
-                            if (neighbours.size() != 2 )
-                            {
-                                continue;
-                            }
+                        //flag edge if it's on an interface
+                        if (neighbours.size() != 2 )
+                        {
+                            is_on_interface = true;
+                            std::cout << "check if color of actual partition is smaller than the other partition of the interface" << std::endl;
+                            std::cout << "if not, do not adapt interface!!!" << std::endl;
+                            //continue;
+                        }
                     }
-                    std::chrono::duration<double> interface_dur = std::chrono::system_clock::now() - interface_tic;
+                    /*std::chrono::duration<double> interface_dur = std::chrono::system_clock::now() - interface_tic;
                     *int_check += interface_dur.count();
-                    //END OF MY OWN IMPLEMENTATION
+                    //END OF MY OWN IMPLEMENTATION*/
 
                     /* Conditional statement ensures that the edge length is only calculated once.
                      * By ordering the vertices according to their gnn, we ensure that all processes
@@ -245,7 +261,18 @@ public:
                         double length = _mesh->calc_edge_length(i, otherVertex);
                         if(length>L_max) {
                             ++splitCnt[tid];
-                            refine_edge(i, otherVertex, tid);
+                            //refine_edge(i, otherVertex, tid);
+
+                            //MY IMPLEMENTATION
+                            if (is_on_interface)
+                            {
+                                refine_edge(i, otherVertex, tid, outbox_data, l2g_vertices, part_id);
+                            }
+                            else 
+                            {
+                                refine_edge(i, otherVertex, tid);
+                            }
+                            //END OF MY IMPLEMENTATION
                         }
                     }
                 }
@@ -253,6 +280,16 @@ public:
 
             threadIdx[tid] = pragmatic_omp_atomic_capture(&_mesh->NNodes, splitCnt[tid]);
             assert(newVertices[tid].size()==splitCnt[tid]);
+
+            //MY IMPLEMENTATION
+            /*auto glob_old_NNodes {0};
+            #pragma omp atomic capture
+            {                
+                glob_old_NNodes = glob_NNodes;
+                glob_NNodes += splitCnt[tid];
+            }
+            std::cout << "NNODES: " << glob_old_NNodes << " " << threadIdx[0] << " " << glob_NNodes << " " << splitCnt[tid] << std::endl;
+            //END OF MY IMPLEMENTATION*/
 
             #pragma omp barrier
 
@@ -274,14 +311,26 @@ public:
             memcpy(&_mesh->_coords[dim*threadIdx[tid]], &newCoords[tid][0], dim*splitCnt[tid]*sizeof(real_t));
             memcpy(&_mesh->metric[msize*threadIdx[tid]], &newMetric[tid][0], msize*splitCnt[tid]*sizeof(double));
 
+            //std::cout << "NewVertices" << std::endl;
+
             // Fix IDs of new vertices
             assert(newVertices[tid].size()==splitCnt[tid]);
             for(size_t i=0; i<splitCnt[tid]; i++) {
                 newVertices[tid][i].id = threadIdx[tid]+i;
+                //MY IMPLEMENTATION
+              /*  std::cout << "new l2g index mappings" << std::endl;
+                std::cout << " " << threadIdx[tid]+i << ": " << glob_old_NNodes+i << std::endl; */
+             /*   l2g_vertices.push_back(glob_old_NNodes+i);
+                g2l_vertices.insert(std::make_pair(glob_old_NNodes+i, threadIdx[tid]+i));
+                //END OF MY IMPLEMENTATION*/
             }
 
             // Accumulate all newVertices in a contiguous array
             memcpy(&allNewVertices[threadIdx[tid]-origNNodes], &newVertices[tid][0], newVertices[tid].size()*sizeof(DirectedEdge<index_t>));
+            std::chrono::duration<double> det_0_dur = std::chrono::system_clock::now() - det_0;
+            int_check[0] += det_0_dur.count();
+
+auto det_1 = std::chrono::system_clock::now();
 
             // Mark each element with its new vertices,
             // update NNList for all split edges.
@@ -338,7 +387,9 @@ public:
                         _mesh->lnn2gnn[vid] = _mesh->gnn_offset+vid;
                 }
             }
-
+            
+                            std::chrono::duration<double> det_1_dur = std::chrono::system_clock::now() - det_1;
+                            int_check[1] += det_1_dur.count();
             if(dim==3) {
                 // If in 3D, we need to refine facets first.
                 #pragma omp for schedule(guided)
@@ -388,6 +439,8 @@ public:
                 }
             }
 
+auto det_2 = std::chrono::system_clock::now();
+
             // Start element refinement.
             splitCnt[tid] = 0;
             newElements[tid].clear();
@@ -396,6 +449,10 @@ public:
             newElements[tid].reserve(dim*dim*origNElements/nthreads);
             newBoundaries[tid].reserve(dim*dim*origNElements/nthreads);
             newQualities[tid].reserve(origNElements/nthreads);
+
+            //MY IMPLEMENTATION
+            threadIdx[tid] = _mesh->NElements;
+            //END OF MY IMPLEMENTATION
 
             #pragma omp for schedule(guided) nowait
             for(size_t eid=0; eid<origNElements; ++eid) {
@@ -406,12 +463,27 @@ public:
 
                 for(size_t j=0; j<nedge; ++j)
                     if(new_vertices_per_element[nedge*eid+j] != -1) {
-                        refine_element(eid, tid);
+                        refine_element(eid, tid, l2g_elements, g2l_elements, glob_NElements);
                         break;
                     }
             }
 
             threadIdx[tid] = pragmatic_omp_atomic_capture(&_mesh->NElements, splitCnt[tid]);
+
+            //MY IMPLEMENTATION
+          /*  auto glob_old_NElements {0};
+            #pragma omp atomic capture
+            {                
+                glob_old_NElements = *glob_NElements;
+                *glob_NElements += splitCnt[tid];
+            }*/
+            /*#pragma omp atomic capture
+            {
+                threadIdx[tid] = _mesh->NElements;
+                _mesh->NElements += splitCnt[tid];
+            }*/
+            //std::cout << "NELEMENTS: " << glob_old_NElements << " " << threadIdx[0] << " " << *glob_NElements << " " << splitCnt[tid] << std::endl;
+            //END OF MY IMPLEMENTATION*/
 
             #pragma omp barrier
             #pragma omp single
@@ -422,7 +494,10 @@ public:
                     _mesh->quality.resize(_mesh->NElements);
                 }
             }
+std::chrono::duration<double> det_2_dur = std::chrono::system_clock::now() - det_2;
+                            int_check[2] += det_2_dur.count();
 
+auto det_3 = std::chrono::system_clock::now();
             // Append new elements to the mesh and commit deferred operations
             memcpy(&_mesh->_ENList[nloc*threadIdx[tid]], &newElements[tid][0], nloc*splitCnt[tid]*sizeof(index_t));
             memcpy(&_mesh->boundary[nloc*threadIdx[tid]], &newBoundaries[tid][0], nloc*splitCnt[tid]*sizeof(int));
@@ -439,7 +514,8 @@ public:
                     def_ops->commit_addNE_fix(threadIdx, i, vtid);
                 }
             }
-
+std::chrono::duration<double> det_3_dur = std::chrono::system_clock::now() - det_3;
+                            int_check[3] += det_3_dur.count();
             // Update halo.
 #ifdef HAVE_MPI
             if(nprocs>1) {
@@ -627,6 +703,56 @@ private:
         }
     }
 
+    //MY IMPLEMENTATION
+    inline void refine_edge(index_t n0, index_t n1, int tid, Outbox& outbox_data, std::vector<int>& l2g_vertices, int part_id)
+    {
+        if(_mesh->lnn2gnn[n0] > _mesh->lnn2gnn[n1]) {
+            // Needs to be swapped because we want the lesser gnn first.
+            index_t tmp_n0=n0;
+            n0=n1;
+            n1=tmp_n0;
+        }
+        newVertices[tid].push_back(DirectedEdge<index_t>(n0, n1));
+
+        // Calculate the position of the new point. From equation 16 in
+        // Li et al, Comp Methods Appl Mech Engrg 194 (2005) 4915-4950.
+        real_t x, m;
+        const real_t *x0 = _mesh->get_coords(n0);
+        const double *m0 = _mesh->get_metric(n0);
+
+        const real_t *x1 = _mesh->get_coords(n1);
+        const double *m1 = _mesh->get_metric(n1);
+
+        real_t weight = 1.0/(1.0 + sqrt(property->template length<dim>(x0, x1, m0)/
+                                        property->template length<dim>(x0, x1, m1)));
+
+        // Calculate position of new vertex and append it to OMP thread's temp storage
+        for(size_t i=0; i<dim; i++) {
+            x = x0[i]+weight*(x1[i] - x0[i]);
+            newCoords[tid].push_back(x);
+        }
+
+        /*std::cout << "splitCnt:" << splitCnt[tid] << std::endl;
+        std::cout << "coords size: " << _mesh->_coords.size() << std::endl;
+        std::cout << _mesh->get_number_nodes() << " " << splitCnt[tid] << std::endl;
+*/
+        outbox_data(part_id, l2g_vertices[n0], l2g_vertices[n1], _mesh->get_number_nodes() + splitCnt[tid] - 1);
+        //outbox_data(part_id, n0, n1, _mesh->get_number_nodes() + splitCnt[tid] - 1);
+
+        // Interpolate new metric and append it to OMP thread's temp storage
+        for(size_t i=0; i<msize; i++) {
+            m = m0[i]+weight*(m1[i] - m0[i]);
+            newMetric[tid].push_back(m);
+            if(pragmatic_isnan(m))
+                std::cerr<<"ERROR: metric health is bad in "<<__FILE__<<std::endl
+                         <<"m0[i] = "<<m0[i]<<std::endl
+                         <<"m1[i] = "<<m1[i]<<std::endl
+                         <<"property->length(x0, x1, m0) = "<<property->template length<dim>(x0, x1, m0)<<std::endl
+                             <<"property->length(x0, x1, m1) = "<<property->template length<dim>(x0, x1, m1)<<std::endl
+                                     <<"weight = "<<weight<<std::endl;
+        }
+    } //END OF MY IMPLEMENTATION
+
     inline void refine_facet(index_t eid, const index_t *facet, int tid)
     {
         const index_t *n=_mesh->get_element(eid);
@@ -690,7 +816,7 @@ private:
     typedef std::map<index_t, int> boundary_t;
 #endif
 
-    inline void refine_element(size_t eid, int tid)
+    inline void refine_element(size_t eid, int tid, std::vector<int>& l2g, std::unordered_map<int, int>& g2l, int& glob_NElements)
     {
         if(dim==2) {
             /*
@@ -713,7 +839,7 @@ private:
                     ++refine_cnt;
 
             if(refine_cnt > 0)
-                (this->*refineMode2D[refine_cnt-1])(newVertex, eid, tid);
+                (this->*refineMode2D[refine_cnt-1])(newVertex, eid, tid, l2g, g2l, glob_NElements);
 
         } else {
             /*
@@ -741,7 +867,7 @@ private:
         }
     }
 
-    inline void refine2D_1(const index_t *newVertex, int eid, int tid)
+    inline void refine2D_1(const index_t *newVertex, int eid, int tid, std::vector<int>& l2g_elements, std::unordered_map<int, int>& g2l_elements, int& glob_NElements)
     {
         // Single edge split.
 
@@ -776,6 +902,8 @@ private:
         index_t ele1ID;
         ele1ID = splitCnt[tid];
 
+        //std::cout << eid << " " << ele1ID << std::endl;
+
         // Add rotated_ele[0] to vertexID's NNList
         def_ops->addNN(vertexID, rotated_ele[0], tid);
         // Add vertexID to rotated_ele[0]'s NNList
@@ -799,11 +927,11 @@ private:
         assert(ele1[0]>=0 && ele1[1]>=0 && ele1[2]>=0);
 
         replace_element(eid, ele0, ele0_boundary);
-        append_element(ele1, ele1_boundary, tid);
+        append_element(ele1, ele1_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
         splitCnt[tid] += 1;
     }
 
-    inline void refine2D_2(const index_t *newVertex, int eid, int tid)
+    inline void refine2D_2(const index_t *newVertex, int eid, int tid, std::vector<int>& l2g_elements, std::unordered_map<int, int>& g2l_elements, int& glob_NElements)
     {
         const int *n=_mesh->get_element(eid);
         const int *boundary=&(_mesh->boundary[eid*nloc]);
@@ -845,6 +973,8 @@ private:
         ele0ID = splitCnt[tid];
         ele2ID = ele0ID+1;
 
+        //std::cout << eid << " " << ele0ID << " " << ele2ID << std::endl;
+
 
         // NNList: Connect vertexID[0] and vertexID[1] with each other
         def_ops->addNN(vertexID[0], vertexID[1], tid);
@@ -877,12 +1007,12 @@ private:
         assert(ele2[0]>=0 && ele2[1]>=0 && ele2[2]>=0);
 
         replace_element(eid, ele1, ele1_boundary);
-        append_element(ele0, ele0_boundary, tid);
-        append_element(ele2, ele2_boundary, tid);
+        append_element(ele0, ele0_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
+        append_element(ele2, ele2_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
         splitCnt[tid] += 2;
     }
 
-    inline void refine2D_3(const index_t *newVertex, int eid, int tid)
+    inline void refine2D_3(const index_t *newVertex, int eid, int tid, std::vector<int>& l2g_elements, std::unordered_map<int, int>& g2l_elements, int& glob_NElements)
     {
         const int *n=_mesh->get_element(eid);
         const int *boundary=&(_mesh->boundary[eid*nloc]);
@@ -901,6 +1031,8 @@ private:
         ele1ID = splitCnt[tid];
         ele2ID = ele1ID+1;
         ele3ID = ele1ID+2;
+
+        //std::cout << eid << " " << ele1ID << " " << ele2ID << " " << ele3ID << " " << threadIdx[tid] << std::endl;
 
         // Update NNList
         def_ops->addNN(newVertex[0], newVertex[1], tid);
@@ -934,9 +1066,9 @@ private:
         assert(ele3[0]>=0 && ele3[1]>=0 && ele3[2]>=0);
 
         replace_element(eid, ele0, ele0_boundary);
-        append_element(ele1, ele1_boundary, tid);
-        append_element(ele2, ele2_boundary, tid);
-        append_element(ele3, ele3_boundary, tid);
+        append_element(ele1, ele1_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
+        append_element(ele2, ele2_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
+        append_element(ele3, ele3_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
         splitCnt[tid] += 3;
     }
 
@@ -2884,6 +3016,61 @@ private:
         newQualities[tid].push_back(q);
     }
 
+    //MY IMPLEMENTATION
+    inline void append_element(const index_t *elem, const int *boundary, const size_t tid, std::vector<int>& l2g_element, std::unordered_map<int,int>& g2l_element, int& glob_NElements)
+    {
+        if(dim==3) {
+            // Fix orientation of new element.
+            const real_t *x0 = &(_mesh->_coords[elem[0]*dim]);
+            const real_t *x1 = &(_mesh->_coords[elem[1]*dim]);
+            const real_t *x2 = &(_mesh->_coords[elem[2]*dim]);
+            const real_t *x3 = &(_mesh->_coords[elem[3]*dim]);
+
+            real_t av = property->volume(x0, x1, x2, x3);
+
+            if(av<0) {
+                index_t *e = const_cast<index_t *>(elem);
+                int *b = const_cast<int *>(boundary);
+
+                // Flip element
+                index_t e0 = e[0];
+                e[0] = e[1];
+                e[1] = e0;
+
+                // and boundary
+                int b0 = b[0];
+                b[0] = b[1];
+                b[1] = b0;
+            }
+        }
+
+        for(size_t i=0; i<nloc; ++i) {
+            newElements[tid].push_back(elem[i]);
+            newBoundaries[tid].push_back(boundary[i]);
+        }
+
+        double q = _mesh->template calculate_quality<dim>(elem);
+        newQualities[tid].push_back(q);
+/*
+        std::cout << "Create new element: " << newElements[tid].size()/3 << std::endl;
+        std::cout << "Updating l2g and g2l for " << newElements[tid].size()/3 << ", with old l2g size being " << l2g_element.size() << " " << _mesh->NElements << " | " << g2l_element.size() << " " << glob_NElements << std::endl;
+*/
+        /*auto tmp_glob_NNodes {0};
+
+        #pragma omp atomic read
+            tmp_glob_NNodes = glob_NElements;
+
+        l2g_element.push_back(glob_NElements);
+        g2l_element.insert( std::make_pair(glob_NElements, _mesh->NElements) );
+
+        ++_mesh->NElements;
+        #pragma omp atomic update
+            ++glob_NElements;
+
+        std::cout << "#elements in partition: " << _mesh->NElements << " " << l2g_element.size() << ", #elements in total: " << glob_NElements << " " << g2l_element.size() << std::endl;*/
+    }
+    //END OF MY IMPLEMENTATION
+
     inline void replace_element(const index_t eid, const index_t *n, const int *boundary)
     {
         if(dim==3) {
@@ -3031,7 +3218,7 @@ private:
     const size_t nloc, msize, nedge;
     int nprocs, rank, nthreads;
 
-    void (Refine<real_t,dim>::* refineMode2D[3])(const index_t *, int, int);
+    void (Refine<real_t,dim>::* refineMode2D[3])(const index_t *, int, int, std::vector<int>&, std::unordered_map<int, int>& , int&);
     void (Refine<real_t,dim>::* refineMode3D[6])(std::vector< DirectedEdge<index_t> >&, int, int);
 };
 

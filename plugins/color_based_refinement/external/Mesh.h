@@ -396,9 +396,27 @@ public:
     }
 
     /// Return positions vector.
-    inline const real_t *get_coords(index_t nid) const
+    inline real_t const *get_coords(index_t nid) const
     {
         return &(_coords[nid*ndims]);
+    }
+
+    double * get_coords_pointer()
+    {
+        return &(_coords[0]);
+    }
+
+    int * get_enlist_pointer()
+    {
+        return &(_ENList[0]);
+    }
+
+    inline void replace_element(const index_t eid, const index_t *n)
+    {
+        for(size_t i=0; i<nloc; i++) 
+        {
+            _ENList[eid*nloc+i]=n[i];
+        }
     }
 
     /// Return copy of the coordinate.
@@ -496,7 +514,7 @@ public:
     //Adds Vertex to NNList
     inline void add_nnlist(size_t id, size_t add_id)
     {
-      NNList[id].push_back(add_id);
+        NNList[id].push_back(add_id);
     }
 
     //Removes Vertex from NNList
@@ -1584,6 +1602,7 @@ private:
     template<typename _real_t, int _dim> friend class Refine;
     template<typename _real_t> friend class DeferredOperations;
     template<typename _real_t> friend class VTKTools;
+    friend class MeshPartitions;
 
     void _init(int _NNodes, int _NElements, const index_t *globalENList,
                const real_t *x, const real_t *y, const real_t *z,

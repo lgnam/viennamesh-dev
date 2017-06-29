@@ -1,7 +1,8 @@
 #Add the directory containing all header files from pragmatic (note that pragmatic is header only!)
-set(PRAGMATIC_INCLUDES "${CMAKE_SOURCE_DIR}/plugins/color_based_refinement/external")
-include_directories(${PRAGMATIC_INCLUDES})
-message (STATUS "Pragmatic includes: ${PRAGMATIC_INCLUDES}")
+#set(PRAGMATIC_INCLUDES "${CMAKE_SOURCE_DIR}/plugins/color_based_refinement/external")
+#include_directories(${PRAGMATIC_INCLUDES})
+#message (STATUS "Pragmatic includes: ${PRAGMATIC_INCLUDES}")
+include_directories("external")
 
 #find METIS package
 find_package(METIS QUIET)
@@ -13,11 +14,28 @@ if (METIS_FOUND)
 else()
   message(FATAL_ERROR "METIS not found")
 endif()
+#Set flag if OpenMP has been found on the system or output an error if not, since it is required for the use of pragmatic
+find_package(OpenMP)
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    add_definitions(-DHAVE_OPENMP)
+    message(STATUS "Found OPENMP")
+    message(STATUS "${CMAKE_C_FLAGS}")
+    message(STATUS "${CMAKE_CXX_FLAGS}")
+else()
+    message(FATAL_ERROR "OpenMP not found")
+endif()
+
+add_definitions( -DTRILIBRARY -DANSI_DECLARATORS -DEXTERNAL_TEST -DNO_TIMER )
 
 #Add plugin to ViennaMesh
+
 VIENNAMESH_ADD_PLUGIN(viennamesh-module-color-refinement 	plugin.cpp
                       color_refinement.cpp
-                      pragmatic_mesh.cpp)
+                      pragmatic_mesh.cpp
+                      external/triangle.c
+                      triangle_interface.c)
 
 if (METIS_FOUND)
   target_link_libraries(viennamesh-module-color-refinement ${METIS_LIBRARIES})

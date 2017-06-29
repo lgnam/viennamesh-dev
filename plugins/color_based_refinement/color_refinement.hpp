@@ -11,7 +11,7 @@ namespace viennamesh
     			color_refinement();
 
     			static std::string name();
-				bool run(viennamesh::algorithm_handle &);
+				bool run (viennamesh::algorithm_handle &);
   	};
 }
 

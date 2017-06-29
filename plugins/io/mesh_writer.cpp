@@ -37,9 +37,22 @@ namespace viennamesh
 
     if (input_mesh.size() != 1 && quantity_field.valid())
       warning(1) << "Input mesh count is " << lexical_cast<std::string>(input_mesh.size()) << " and quantity fields found -> ignoring quantity fields" << std::endl;
-
+/*
     info(1) << "Number of vertices of mesh to write " << viennagrid::vertices(input_mesh()).size() << std::endl;
     info(1) << "Number of cells of mesh to write " << viennagrid::cells(input_mesh()).size() << std::endl;
+*/
+    int vertices = 0;
+    int elements = 0;
+
+    for (size_t i = 0; i < input_mesh.size(); ++i)
+    {
+      vertices += viennagrid::vertices(input_mesh(i)).size();
+      elements += viennagrid::cells(input_mesh(i)).size();
+    }
+
+    viennamesh::info(1) << "Number of Meshes  : " << input_mesh.size() << std::endl;
+    viennamesh::info(1) << "Number of Vertices: " << vertices << std::endl;
+    viennamesh::info(1) << "Number of Elements: " << elements << std::endl;
 
     if (!filename.valid())
       VIENNAMESH_ERROR(VIENNAMESH_ERROR_ALGORITHM_RUN_FAILED, "Input parameter \"filename\" not found");
