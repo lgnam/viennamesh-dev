@@ -147,7 +147,7 @@ public:
     //void refine(real_t L_max, std::vector<std::set<int>>& nodes_part_ids, std::map<int,int>& l2g, double *int_check)
     void refine(real_t L_max, std::vector<std::set<int>>& nodes_part_ids, std::vector<int>& l2g_vertices, std::unordered_map<int,int>& g2l_vertices, 
                  std::vector<int>& l2g_elements, std::unordered_map<int,int>& g2l_elements, double *int_check, int &glob_NNodes, int &glob_NElements,
-                 const int part_id, Outbox& outbox_data, std::vector<Outbox>& outboxes, std::vector<int>& partition_colors, std::set<int>& partition_adjcy )
+                 const int part_id, Outbox& outbox_data, std::vector<Outbox>& outboxes, std::vector<int>& partition_colors, std::set<int>& partition_adjcy)
     {
         size_t origNElements = _mesh->get_number_elements();
         size_t origNNodes = _mesh->get_number_nodes();
@@ -182,8 +182,9 @@ public:
         #pragma omp parallel num_threads(1)
         {
             auto det_0 = std::chrono::system_clock::now();
-            bool is_on_interface = false;
+            bool adapt_interface = false;
             bool is_in_outbox = false;
+            auto target_part_id {0};
 
             #pragma omp single nowait
             {
@@ -210,14 +211,14 @@ public:
             /* Loop through all edges and select them for refinement if
                its length is greater than L_max in transformed space. */
             #pragma omp for schedule(guided) nowait
-            for(size_t i=0; i<origNNodes; ++i) {
-                for(size_t it=0; it<_mesh->NNList[i].size(); ++it) {
+            for(size_t i=0; i<origNNodes; ++i) { //std::cout << "processing vertex " << i << std::endl;
+                for(size_t it=0; it<_mesh->NNList[i].size(); ++it) { 
                     index_t otherVertex = _mesh->NNList[i][it];
                     assert(otherVertex>=0);
 
                     //MY OWN IMPLEMENTATION
-                    is_on_interface=false;
-
+                    adapt_interface=false;
+                    //std::cout << i << " " << otherVertex << std::endl;
 
                     /*
                     if ( (boundary_nodes[i] == 1 && boundary_nodes[otherVertex] == 1) )
@@ -232,6 +233,20 @@ public:
                     }
                     */
                     //auto interface_tic = std::chrono::system_clock::now();
+/*
+                    std::cout << "  check if on boundary and interface" << std::endl;
+                    std::cout << "  " << _mesh->get_number_nodes() << " " << i << " " << otherVertex << " " << nodes_part_ids.size() << std::endl;
+                    std::cout << "  l2g-tries" << std::endl;
+                    std::cout << "  " << l2g_vertices[i] << " " << l2g_vertices[otherVertex] << std::endl;
+                    std::cout << "  l2g-tries successful" << std::endl;
+*/
+                    //if i or otherVertex is a vertex inserted from the neighboring partition, skip its processing,
+                    //because in this case no information in nodes_part_ids is available
+                    if (otherVertex >= l2g_vertices.size() || i >= l2g_vertices.size())
+                        continue;
+
+                    
+
                     //if ( (nodes_part_ids[l2g_vertices.at(i)].size() > 1) && (nodes_part_ids[l2g_vertices.at(otherVertex)].size() > 1) )
                     if ( (nodes_part_ids[l2g_vertices[i]].size() > 1) && (nodes_part_ids[l2g_vertices[otherVertex]].size() > 1) )
                     {
@@ -239,20 +254,83 @@ public:
                         set_intersection(_mesh->NEList[i].begin(), _mesh->NEList[i].end(),
                                          _mesh->NEList[otherVertex].begin(), _mesh->NEList[otherVertex].end(),
                                          inserter(neighbours, neighbours.begin()));
-
+                                         
                         //flag edge if it's on an interface
                         if (neighbours.size() != 2 )
                         {
-                            is_on_interface = true;
-                            std::cout << "check if color of actual partition is smaller than the other partition of the interface" << std::endl;
-                            std::cout << "if not, do not adapt interface!!!" << std::endl;
+                           /* std::cout << "  check if color of actual partition is smaller than the other partition of the interface" << std::endl;
+                            std::cout << "  if not, do not adapt interface!!!" << std::endl;
+
+                            std::cout << "  I am partition " <<  part_id << " and have the color " << partition_colors[part_id] << std::endl;
+*/
+                            std::vector<int> interface_edge;
+                            set_intersection(nodes_part_ids[l2g_vertices[i]].begin(), nodes_part_ids[l2g_vertices[i]].end(),
+                                             nodes_part_ids[l2g_vertices[otherVertex]].begin(), nodes_part_ids[l2g_vertices[otherVertex]].end(),
+                                             inserter(interface_edge, interface_edge.begin()));
+
+                            //std::cout << "global IDs: " << l2g_vertices[i] << " and " << l2g_vertices[otherVertex] << std::endl;
+
+                            auto color_part_id {-1}, color_neighbor {-1};
+
+                            //if color of the neighbor is smaller than the own color, refinement must not happen!
+                            if (interface_edge[0] == part_id)
+                            {
+                                color_part_id = partition_colors[interface_edge[0]];
+                                color_neighbor = partition_colors[interface_edge[1]];
+                                target_part_id = interface_edge[1];
+                            }
+
+                            else if (interface_edge[1] == part_id) 
+                            {
+                                color_neighbor = partition_colors[interface_edge[0]];
+                                color_part_id = partition_colors[interface_edge[1]];
+                                target_part_id = interface_edge[0];
+                            }
+
+                            else
+                            {
+                                std::cerr << "ERROR WHEN COMPARING PARTITION COLORS" << std::endl;
+                                break;
+                            }
+
+                            //adapt interface only to a neighbor with higher color
+                            if (color_part_id > color_neighbor)
+                            {
+                              /*  std::cout << "  interface color forbids interface adaption: " << interface_edge[1] << " " << part_id << std::endl;
+                                std::cout << "  " << interface_edge[0] << std::endl;
+                                std::cout << "Partition " << part_id << std::endl;
+                                std::cout << "  Vertices: " << i << " " << otherVertex << std::endl;
+                                std::cout << "  interface_edges: " << interface_edge[0] << " " << interface_edge[1] << ", size of interface_edges: " << interface_edge.size() << std::endl;
+                                std::cout << "  colors: " << color_part_id << " " << color_neighbor << std::endl;*/
+                                continue;
+                            }
+/*
+                            for (auto iter : interface_edge)
+                            {
+                                std::cout << iter << std::endl;
+                            }
+
+/*
+                            for (auto it : nodes_part_ids[l2g_vertices[i]])
+                            {
+                                std::cout << " " << it << std::endl;
+                            }
+
+                            for (auto it : nodes_part_ids[l2g_vertices[otherVertex]])
+                            {
+                                std::cout << " " << it << std::endl;
+                            }
+*/
+                            //std::cout << "  adapt interface between " << interface_edge[0] << " and " << interface_edge[1] << std::endl;
+                            //target_part_id = interface_edge[1];
+                            adapt_interface = true;
                             //continue;
                         }
                     }
                     /*std::chrono::duration<double> interface_dur = std::chrono::system_clock::now() - interface_tic;
                     *int_check += interface_dur.count();
                     //END OF MY OWN IMPLEMENTATION*/
-
+                   
                     /* Conditional statement ensures that the edge length is only calculated once.
                      * By ordering the vertices according to their gnn, we ensure that all processes
                      * calculate the same edge length when they fall on the halo.
@@ -262,11 +340,11 @@ public:
                         if(length>L_max) {
                             ++splitCnt[tid];
                             //refine_edge(i, otherVertex, tid);
-
+                        
                             //MY IMPLEMENTATION
-                            if (is_on_interface)
+                            if (adapt_interface)
                             {
-                                refine_edge(i, otherVertex, tid, outbox_data, l2g_vertices, part_id);
+                                refine_edge(i, otherVertex, tid, outbox_data, l2g_vertices, target_part_id);
                             }
                             else 
                             {
@@ -290,7 +368,7 @@ public:
             }
             std::cout << "NNODES: " << glob_old_NNodes << " " << threadIdx[0] << " " << glob_NNodes << " " << splitCnt[tid] << std::endl;
             //END OF MY IMPLEMENTATION*/
-
+            
             #pragma omp barrier
 
             #pragma omp single
@@ -310,8 +388,6 @@ public:
             // Append new coords and metric to the mesh.
             memcpy(&_mesh->_coords[dim*threadIdx[tid]], &newCoords[tid][0], dim*splitCnt[tid]*sizeof(real_t));
             memcpy(&_mesh->metric[msize*threadIdx[tid]], &newMetric[tid][0], msize*splitCnt[tid]*sizeof(double));
-
-            //std::cout << "NewVertices" << std::endl;
 
             // Fix IDs of new vertices
             assert(newVertices[tid].size()==splitCnt[tid]);
@@ -467,7 +543,7 @@ auto det_2 = std::chrono::system_clock::now();
                         break;
                     }
             }
-
+            
             threadIdx[tid] = pragmatic_omp_atomic_capture(&_mesh->NElements, splitCnt[tid]);
 
             //MY IMPLEMENTATION
@@ -704,7 +780,7 @@ private:
     }
 
     //MY IMPLEMENTATION
-    inline void refine_edge(index_t n0, index_t n1, int tid, Outbox& outbox_data, std::vector<int>& l2g_vertices, int part_id)
+    inline void refine_edge(index_t n0, index_t n1, int tid, Outbox& outbox_data, std::vector<int>& l2g_vertices, int target_part_id)
     {
         if(_mesh->lnn2gnn[n0] > _mesh->lnn2gnn[n1]) {
             // Needs to be swapped because we want the lesser gnn first.
@@ -736,8 +812,9 @@ private:
         std::cout << "coords size: " << _mesh->_coords.size() << std::endl;
         std::cout << _mesh->get_number_nodes() << " " << splitCnt[tid] << std::endl;
 */
-        outbox_data(part_id, l2g_vertices[n0], l2g_vertices[n1], _mesh->get_number_nodes() + splitCnt[tid] - 1);
-        //outbox_data(part_id, n0, n1, _mesh->get_number_nodes() + splitCnt[tid] - 1);
+        outbox_data(target_part_id, l2g_vertices[n0], l2g_vertices[n1], _mesh->get_number_nodes() + splitCnt[tid] - 1);
+        //std::cout << "pushing into outbox: " << target_part_id << " " << l2g_vertices[n0] << " " << l2g_vertices[n1] << " " << (_mesh->get_number_nodes()+splitCnt[tid] -1) << std::endl;
+        //outbox_data(target_part_id, n0, n1, _mesh->get_number_nodes() + splitCnt[tid] - 1);
 
         // Interpolate new metric and append it to OMP thread's temp storage
         for(size_t i=0; i<msize; i++) {

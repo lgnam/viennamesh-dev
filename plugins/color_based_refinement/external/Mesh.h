@@ -276,6 +276,7 @@ public:
         }
 
         for(std::vector<int>::iterator it=boundary.begin(); it!=boundary.end(); ++it) {
+
             if(*it==-2)
                 *it = 1;
             else if(*it>=0)
@@ -921,7 +922,7 @@ public:
     /// Print out the qualities. Useful if you want to plot a histogram of element qualities.
     void print_quality() const
     {
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             #pragma omp for schedule(static)
             for(size_t i=0; i<NElements; i++)

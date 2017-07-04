@@ -116,8 +116,18 @@ int main(int argc, char *argv[])
 	//Write output mesh
 	viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
 	mesh_writer.set_default_source(color);
-	mesh_writer.set_input("filename", "test/triangle_parallel.vtu");
+	mesh_writer.set_input("filename", "test/triangle_refined.vtu");
 	mesh_writer.run();
+//*/
+
+/*	viennamesh::algorithm_handle mesh_merger = context.make_algorithm("merge_meshes");
+	mesh_merger.set_default_source(color);
+	mesh_merger.run();
+
+	viennamesh::algorithm_handle write_merged = context.make_algorithm("mesh_writer");
+	write_merged.set_default_source(mesh_merger);
+	write_merged.set_input("filename", "test/triangle_merged.vtu");
+	write_merged.run();
 //*/
     return 0;
 }
