@@ -112,11 +112,21 @@ int main(int argc, char *argv[])
 	merger.set_default_source(triangle);
 	merger.run();
 */
-
+/*
 	//Write output mesh
 	viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
 	mesh_writer.set_default_source(color);
-	mesh_writer.set_input("filename", "test/triangle_refined.vtu");
+	
+	//construct filename
+	
+	std::string folder = "test/";
+
+	std::string outfilename = filename.substr(filename.find_last_of("/")+1);
+	outfilename.replace(outfilename.find(".vtu"), 12, "_initial.vtu");
+
+	folder += outfilename;
+
+	mesh_writer.set_input("filename", folder.c_str());
 	mesh_writer.run();
 //*/
 

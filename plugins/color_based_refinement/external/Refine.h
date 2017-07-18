@@ -145,9 +145,12 @@ public:
      * Mathematics, Volume 13, Issue 6, February 1994, Pages 437-452.
      */
     //void refine(real_t L_max, std::vector<std::set<int>>& nodes_part_ids, std::map<int,int>& l2g, double *int_check)
-    void refine(real_t L_max, std::vector<std::set<int>>& nodes_part_ids, std::vector<int>& l2g_vertices, std::unordered_map<int,int>& g2l_vertices, 
+    /*void refine(real_t L_max, std::vector<std::set<int>>& nodes_part_ids, std::vector<int>& l2g_vertices, std::unordered_map<int,int>& g2l_vertices, 
                  std::vector<int>& l2g_elements, std::unordered_map<int,int>& g2l_elements, double *int_check, int &glob_NNodes, int &glob_NElements,
-                 const int part_id, Outbox& outbox_data, std::vector<Outbox>& outboxes, std::vector<int>& partition_colors, std::set<int>& partition_adjcy)
+                 const int part_id, Outbox& outbox_data, std::vector<Outbox>& outboxes, std::vector<int>& partition_colors, std::set<int>& partition_adjcy)*/
+    void refine(real_t L_max, std::vector<std::set<int>>& nodes_part_ids, std::vector<int>& l2g_vertices, 
+                std::unordered_map<int,int>& g2l_vertices, const int part_id, Outbox& outbox_data, std::vector<int>& partition_colors,
+                std::set<int>& partition_adjcy)
     {
         size_t origNElements = _mesh->get_number_elements();
         size_t origNNodes = _mesh->get_number_nodes();
@@ -181,9 +184,9 @@ public:
         */
         #pragma omp parallel num_threads(1)
         {
-            auto det_0 = std::chrono::system_clock::now();
+            //auto det_0 = std::chrono::system_clock::now();
             bool adapt_interface = false;
-            bool is_in_outbox = false;
+            //bool is_in_outbox = false;
             auto target_part_id {0};
 
             #pragma omp single nowait
@@ -212,7 +215,7 @@ public:
                its length is greater than L_max in transformed space. */
             #pragma omp for schedule(guided) nowait
             for(size_t i=0; i<origNNodes; ++i) { //std::cout << "processing vertex " << i << std::endl;
-                for(size_t it=0; it<_mesh->NNList[i].size(); ++it) { 
+                for(size_t it=0; it<_mesh->NNList[i].size(); ++it) {
                     index_t otherVertex = _mesh->NNList[i][it];
                     assert(otherVertex>=0);
 
@@ -289,7 +292,8 @@ public:
 
                             else
                             {
-                                std::cerr << "ERROR WHEN COMPARING PARTITION COLORS" << std::endl;
+                                std::cerr << "ERROR WHEN COMPARING PARTITION COLORS OF " << i << " AND " << otherVertex << " in " << part_id << std::endl;
+                                std::cerr << "size of interface_edge " << interface_edge.size() << std::endl;
                                 break;
                             }
 
@@ -403,10 +407,10 @@ public:
 
             // Accumulate all newVertices in a contiguous array
             memcpy(&allNewVertices[threadIdx[tid]-origNNodes], &newVertices[tid][0], newVertices[tid].size()*sizeof(DirectedEdge<index_t>));
-            std::chrono::duration<double> det_0_dur = std::chrono::system_clock::now() - det_0;
-            int_check[0] += det_0_dur.count();
+            //std::chrono::duration<double> det_0_dur = std::chrono::system_clock::now() - det_0;
+            //int_check[0] += det_0_dur.count();
 
-auto det_1 = std::chrono::system_clock::now();
+//auto det_1 = std::chrono::system_clock::now();
 
             // Mark each element with its new vertices,
             // update NNList for all split edges.
@@ -464,8 +468,8 @@ auto det_1 = std::chrono::system_clock::now();
                 }
             }
             
-                            std::chrono::duration<double> det_1_dur = std::chrono::system_clock::now() - det_1;
-                            int_check[1] += det_1_dur.count();
+                            //std::chrono::duration<double> det_1_dur = std::chrono::system_clock::now() - det_1;
+                            //int_check[1] += det_1_dur.count();
             if(dim==3) {
                 // If in 3D, we need to refine facets first.
                 #pragma omp for schedule(guided)
@@ -515,7 +519,7 @@ auto det_1 = std::chrono::system_clock::now();
                 }
             }
 
-auto det_2 = std::chrono::system_clock::now();
+//auto det_2 = std::chrono::system_clock::now();
 
             // Start element refinement.
             splitCnt[tid] = 0;
@@ -539,7 +543,8 @@ auto det_2 = std::chrono::system_clock::now();
 
                 for(size_t j=0; j<nedge; ++j)
                     if(new_vertices_per_element[nedge*eid+j] != -1) {
-                        refine_element(eid, tid, l2g_elements, g2l_elements, glob_NElements);
+                        refine_element(eid, tid);
+                        //refine_element(eid, tid, l2g_elements, g2l_elements, glob_NElements);
                         break;
                     }
             }
@@ -570,10 +575,10 @@ auto det_2 = std::chrono::system_clock::now();
                     _mesh->quality.resize(_mesh->NElements);
                 }
             }
-std::chrono::duration<double> det_2_dur = std::chrono::system_clock::now() - det_2;
-                            int_check[2] += det_2_dur.count();
+//std::chrono::duration<double> det_2_dur = std::chrono::system_clock::now() - det_2;
+                            //int_check[2] += det_2_dur.count();
 
-auto det_3 = std::chrono::system_clock::now();
+//auto det_3 = std::chrono::system_clock::now();
             // Append new elements to the mesh and commit deferred operations
             memcpy(&_mesh->_ENList[nloc*threadIdx[tid]], &newElements[tid][0], nloc*splitCnt[tid]*sizeof(index_t));
             memcpy(&_mesh->boundary[nloc*threadIdx[tid]], &newBoundaries[tid][0], nloc*splitCnt[tid]*sizeof(int));
@@ -590,8 +595,8 @@ auto det_3 = std::chrono::system_clock::now();
                     def_ops->commit_addNE_fix(threadIdx, i, vtid);
                 }
             }
-std::chrono::duration<double> det_3_dur = std::chrono::system_clock::now() - det_3;
-                            int_check[3] += det_3_dur.count();
+//std::chrono::duration<double> det_3_dur = std::chrono::system_clock::now() - det_3;
+                            //int_check[3] += det_3_dur.count();
             // Update halo.
 #ifdef HAVE_MPI
             if(nprocs>1) {
@@ -893,7 +898,8 @@ private:
     typedef std::map<index_t, int> boundary_t;
 #endif
 
-    inline void refine_element(size_t eid, int tid, std::vector<int>& l2g, std::unordered_map<int, int>& g2l, int& glob_NElements)
+    //inline void refine_element(size_t eid, int tid, std::vector<int>& l2g, std::unordered_map<int, int>& g2l, int& glob_NElements)
+    inline void refine_element(size_t eid, int tid)
     {
         if(dim==2) {
             /*
@@ -916,7 +922,8 @@ private:
                     ++refine_cnt;
 
             if(refine_cnt > 0)
-                (this->*refineMode2D[refine_cnt-1])(newVertex, eid, tid, l2g, g2l, glob_NElements);
+                (this->*refineMode2D[refine_cnt-1])(newVertex, eid, tid);
+                //(this->*refineMode2D[refine_cnt-1])(newVertex, eid, tid, l2g, g2l, glob_NElements);
 
         } else {
             /*
@@ -944,7 +951,8 @@ private:
         }
     }
 
-    inline void refine2D_1(const index_t *newVertex, int eid, int tid, std::vector<int>& l2g_elements, std::unordered_map<int, int>& g2l_elements, int& glob_NElements)
+    //inline void refine2D_1(const index_t *newVertex, int eid, int tid, std::vector<int>& l2g_elements, std::unordered_map<int, int>& g2l_elements, int& glob_NElements)
+    inline void refine2D_1(const index_t *newVertex, int eid, int tid)
     {
         // Single edge split.
 
@@ -1004,11 +1012,13 @@ private:
         assert(ele1[0]>=0 && ele1[1]>=0 && ele1[2]>=0);
 
         replace_element(eid, ele0, ele0_boundary);
-        append_element(ele1, ele1_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
+        //append_element(ele1, ele1_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
+        append_element(ele1, ele1_boundary,tid);
         splitCnt[tid] += 1;
     }
 
-    inline void refine2D_2(const index_t *newVertex, int eid, int tid, std::vector<int>& l2g_elements, std::unordered_map<int, int>& g2l_elements, int& glob_NElements)
+    //inline void refine2D_2(const index_t *newVertex, int eid, int tid, std::vector<int>& l2g_elements, std::unordered_map<int, int>& g2l_elements, int& glob_NElements)
+    inline void refine2D_2(const index_t *newVertex, int eid, int tid)
     {
         const int *n=_mesh->get_element(eid);
         const int *boundary=&(_mesh->boundary[eid*nloc]);
@@ -1084,12 +1094,16 @@ private:
         assert(ele2[0]>=0 && ele2[1]>=0 && ele2[2]>=0);
 
         replace_element(eid, ele1, ele1_boundary);
-        append_element(ele0, ele0_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
-        append_element(ele2, ele2_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
+        //append_element(ele0, ele0_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
+        //append_element(ele2, ele2_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
+        append_element(ele0, ele0_boundary, tid);
+        append_element(ele2, ele2_boundary, tid);
+
         splitCnt[tid] += 2;
     }
 
-    inline void refine2D_3(const index_t *newVertex, int eid, int tid, std::vector<int>& l2g_elements, std::unordered_map<int, int>& g2l_elements, int& glob_NElements)
+    //inline void refine2D_3(const index_t *newVertex, int eid, int tid, std::vector<int>& l2g_elements, std::unordered_map<int, int>& g2l_elements, int& glob_NElements)
+    inline void refine2D_3(const index_t *newVertex, int eid, int tid)
     {
         const int *n=_mesh->get_element(eid);
         const int *boundary=&(_mesh->boundary[eid*nloc]);
@@ -1142,10 +1156,14 @@ private:
         assert(ele2[0]>=0 && ele2[1]>=0 && ele2[2]>=0);
         assert(ele3[0]>=0 && ele3[1]>=0 && ele3[2]>=0);
 
-        replace_element(eid, ele0, ele0_boundary);
+        replace_element(eid, ele0, ele0_boundary);/*
         append_element(ele1, ele1_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
         append_element(ele2, ele2_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
-        append_element(ele3, ele3_boundary, tid, l2g_elements, g2l_elements, glob_NElements);
+        append_element(ele3, ele3_boundary, tid, l2g_elements, g2l_elements, glob_NElements);*/
+        append_element(ele1, ele1_boundary, tid);
+        append_element(ele2, ele2_boundary, tid);
+        append_element(ele3, ele3_boundary, tid);
+
         splitCnt[tid] += 3;
     }
 
@@ -3295,7 +3313,8 @@ private:
     const size_t nloc, msize, nedge;
     int nprocs, rank, nthreads;
 
-    void (Refine<real_t,dim>::* refineMode2D[3])(const index_t *, int, int, std::vector<int>&, std::unordered_map<int, int>& , int&);
+    //void (Refine<real_t,dim>::* refineMode2D[3])(const index_t *, int, int, std::vector<int>&, std::unordered_map<int, int>& , int&);
+    void (Refine<real_t,dim>::* refineMode2D[3])(const index_t *, int, int);
     void (Refine<real_t,dim>::* refineMode3D[6])(std::vector< DirectedEdge<index_t> >&, int, int);
 };
 

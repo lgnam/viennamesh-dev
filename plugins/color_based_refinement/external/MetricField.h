@@ -94,7 +94,7 @@ public:
             bbox[i*2] = DBL_MAX;
             bbox[i*2+1] = -DBL_MAX;
         }
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             double lbbox[dim*2];
             for(int i=0; i<dim; i++) {
@@ -140,7 +140,7 @@ public:
             _metric = new MetricTensor<real_t,dim>[_NNodes];
 
         if(dim==2) {
-            #pragma omp parallel
+            #pragma omp parallel num_threads(1)
             {
                 double alpha = pow(1.0/resolution_scaling_factor, 2);
                 #pragma omp for schedule(static)
@@ -157,7 +157,7 @@ public:
                 }
             }
         } else {
-            #pragma omp parallel
+            #pragma omp parallel num_threads(1)
             {
                 double alpha = pow(1.0/resolution_scaling_factor, 2);
                 #pragma omp for schedule(static)
@@ -392,7 +392,7 @@ public:
             exit(-1);
         } else {
             std::vector<double> SteinerMetricField(_NElements*6);
-            #pragma omp parallel
+            #pragma omp parallel num_threads(1)
             {
                 #pragma omp for schedule(static)
                 for(int i=0; i<_NElements; i++) {
@@ -434,7 +434,7 @@ public:
     void get_metric(real_t* metric)
     {
         // Enforce first-touch policy.
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++) {
@@ -554,7 +554,7 @@ public:
 #endif
 
         // Enforce first-touch policy
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++) {
@@ -776,7 +776,7 @@ public:
             M[5] = m;
         }
 
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++)
@@ -805,7 +805,7 @@ public:
             M[5] = m;
         }
 
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++)
@@ -818,7 +818,7 @@ public:
      */
     void apply_min_edge_length(const real_t *min_len)
     {
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             real_t M[dim==2?3:6];
             #pragma omp for schedule(static)
@@ -849,7 +849,7 @@ public:
      */
     void apply_max_aspect_ratio(real_t max_aspect_ratio)
     {
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++)
@@ -886,7 +886,7 @@ public:
         if(dim==3)
             scale_factor = pow(scale_factor, 2.0/3.0);
 
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             #pragma omp for schedule(static)
             for(int i=0; i<_NNodes; i++)

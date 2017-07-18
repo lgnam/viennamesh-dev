@@ -169,10 +169,10 @@ namespace viennamesh
         //iterating all pragmatic vertices and store their coordinates in the viennagrid vertices
         for(size_t i = 0; i < num_points; ++i)
         {
-          double coords[2];
+          double coords[3];
           polydata->GetPoint(i, coords);
 
-          vertex_handles[i] = viennagrid::make_vertex( output_mesh(), viennagrid::make_point(coords[0], coords[1]));
+          vertex_handles[i] = viennagrid::make_vertex( output_mesh(), viennagrid::make_point(coords[0], coords[1], coords[2]));
         } //end of for loop iterating all pragmatic vertices 
 
         //iterating all pragmatic elements and createg their corresponding viennagrid triangles

@@ -515,13 +515,17 @@ public:
     //Adds Vertex to NNList
     inline void add_nnlist(size_t id, size_t add_id)
     {
+        //std::cout << "  add " << add_id << " to " << id << std::endl;
         NNList[id].push_back(add_id);
     }
 
     //Removes Vertex from NNList
     inline void remove_nnlist(size_t id, size_t rem_id)
     {
-      std::vector<index_t>::iterator position = std::find(NNList[id].begin(), NNList[id].end(), rem_id);         
+      auto position = std::find(NNList[id].begin(), NNList[id].end(), rem_id);     
+     /* std::cout << "from " << id << " remove " << rem_id << " which is at " << *position << std::endl;    
+      if (position == NNList[id].end())
+        std::cout << rem_id << " NOT FOUND" << std::endl;*/
       NNList[id].erase(position);
     }
 

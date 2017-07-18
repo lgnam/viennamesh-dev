@@ -87,21 +87,25 @@ namespace viennamesh
 			{*/
 			std::chrono::duration<double> pragmatic_duration;
 			std::vector<double> threads_log;
-			std::vector<double> refine_times;
-			std::vector<double> triangulate_log;
-			std::vector<double> int_check_log;
-			std::vector<double> build_tri_ds;
+			std::vector<double> heal_log;
+			std::vector<double> metric_log;
+			std::vector<double> call_refine_log;
+			std::vector<double> refine_log;
+			
+			//std::vector<double> int_check_log;
+			//std::vector<double> build_tri_ds;
 			/*
 			std::vector<double> times(13);
 			std::fill(times.begin(), times.end(), 0.0);
 			*/
-			std::vector<double> l2g_build, l2g_access, g2l_build, g2l_access;
+			//std::vector<double> l2g_build, l2g_access, g2l_build, g2l_access;
 
 				//PARALLEL PART
 				wall_tic = std::chrono::system_clock::now();
-					InputMesh.CreatePragmaticDataStructures_par(threads_log, refine_times, l2g_build, l2g_access, g2l_build, g2l_access, 
-																algo, options, triangulate_log, int_check_log, build_tri_ds);
-				std::chrono::duration<double> cpds_dur = std::chrono::system_clock::now() - wall_tic;	
+					/*InputMesh.CreatePragmaticDataStructures_par(threads_log, refine_times, l2g_build, l2g_access, g2l_build, g2l_access, 
+																algo, options, triangulate_log, int_check_log);//, build_tri_ds); //*/
+				    InputMesh.CreatePragmaticDataStructures_par(algo, threads_log, heal_log, metric_log, call_refine_log, refine_log);
+				std::chrono::duration<double> cpds_duration = std::chrono::system_clock::now() - wall_tic;	
 
 			//}
 
@@ -125,7 +129,7 @@ namespace viennamesh
 			//Coloring [s], Parallel DSs [s], Prep [s], Nodes [s], g2l [s], l2g [s], Coords [s], ENList [s], new Mesh [s], Boundary [s], Metric [s],
 			// Update Metric [s], Interface Check [s],  Refine [s], Create Refine [s], R-Vertices, R-Elements, Total [s], Thread Times in Color Loop [s]" << std::endl;
 			csv << input_file().substr(found+1) << ", " << num_threads() << ", " << input_mesh()->get_number_nodes() << ", ";
-			csv << input_mesh()->get_number_elements() << ", "  << num_partitions() << ", " << InputMesh.get_max()+1;
+			csv << input_mesh()->get_number_elements() << ", "  << num_partitions();// << ", " << InputMesh.get_max()+1;
 			csv << ", " << InputMesh.get_colors() << ", ";
 			csv << std::fixed << std::setprecision(8) << partitioning_duration.count() << ", ";
 			csv << adjacency_duration.count() << ", ";
@@ -152,11 +156,29 @@ namespace viennamesh
 			}
 			*/
 			
-			csv << cpds_dur.count() << ", ";
+			csv << cpds_duration.count() << ", ";
 			csv << r_vertices << ", ";
 	 		csv << r_elements << ", ";
 			csv << overall_duration.count() << ",";
 
+			for (size_t i =0; i < threads_log.size(); ++i)
+				csv << threads_log[i] << ", ";
+
+			for (size_t i =0; i < heal_log.size(); ++i)
+				csv << heal_log[i] << ", ";
+
+			for (size_t i =0; i < metric_log.size(); ++i)
+				csv << metric_log[i] << ", ";
+
+			for (size_t i =0; i < call_refine_log.size(); ++i)
+				csv << call_refine_log[i] << ", ";
+
+			for (size_t i =0; i < refine_log.size(); ++i)
+				csv << refine_log[i] << ", ";
+				
+			csv << std::endl;
+			csv.close();
+/*
 			for (size_t i =0; i < refine_times.size(); ++i)
 				csv << refine_times[i] << ", ";
 
@@ -169,7 +191,7 @@ namespace viennamesh
 				csv << threads_log[i] << ", ";
 
 			for (size_t i = 0; i < int_check_log.size(); ++i)
-				csv << int_check_log[i] << ",";
+				csv << int_check_log[i] << ","; */
 /*
 			for (size_t i = 0; i < build_tri_ds.size(); ++i)
 				csv << build_tri_ds[i] << ",";
@@ -218,7 +240,7 @@ namespace viennamesh
 			//WritePartitions();
 			*/
 			//Convert to ViennaGrid
-			auto convert_tic = std::chrono::system_clock::now();
+			//auto convert_tic = std::chrono::system_clock::now();
 
 			//ViennaGrid typedefs
 			typedef viennagrid::mesh                                                        MeshType;
@@ -234,7 +256,8 @@ namespace viennamesh
 			//convert pragmatic to viennagrid output
 			if (algo=="pragmatic")
 			{
-				std::cout << "Converting Pragmatic to ViennaGrid data structure" << std::endl;
+				viennamesh::info(5) << "Converting Pragmatic to ViennaGrid data structure" << std::endl;
+				std::cerr << "REPLACE THIS WITH IMPLICIT CONVERSION!!!" << std::endl;
 
 				for (size_t i = 0; i != InputMesh.pragmatic_partitions.size(); ++i)
 				{
@@ -337,9 +360,9 @@ namespace viennamesh
 				//end of free used memory*/
 			} //end of convert triangle to viennagrid output
 
-			std::chrono::duration<double> convert_dur = std::chrono::system_clock::now() - convert_tic;
+			//std::chrono::duration<double> convert_dur = std::chrono::system_clock::now() - convert_tic;
 
-			csv << convert_dur.count();
+		/*	csv << convert_dur.count();
 			csv << std::endl;
 			csv.close();
 /*
