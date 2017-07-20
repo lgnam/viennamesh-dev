@@ -292,22 +292,23 @@ public:
 
                             else
                             {
-                                std::cerr << "ERROR WHEN COMPARING PARTITION COLORS OF " << i << " AND " << otherVertex << " in " << part_id << std::endl;
-                                std::cerr << "size of interface_edge " << interface_edge.size() << std::endl;
+                                //std::cerr << "ERROR WHEN COMPARING PARTITION COLORS OF " << i << " AND " << otherVertex << " in " << part_id << std::endl;
+                                //std::cerr << "size of interface_edge " << interface_edge.size() << std::endl;
                                 break;
                             }
 
                             //adapt interface only to a neighbor with higher color
-                            if (color_part_id > color_neighbor)
+                            /*if (color_part_id > color_neighbor)
                             {
                               /*  std::cout << "  interface color forbids interface adaption: " << interface_edge[1] << " " << part_id << std::endl;
                                 std::cout << "  " << interface_edge[0] << std::endl;
                                 std::cout << "Partition " << part_id << std::endl;
                                 std::cout << "  Vertices: " << i << " " << otherVertex << std::endl;
                                 std::cout << "  interface_edges: " << interface_edge[0] << " " << interface_edge[1] << ", size of interface_edges: " << interface_edge.size() << std::endl;
-                                std::cout << "  colors: " << color_part_id << " " << color_neighbor << std::endl;*/
+                                std::cout << "  colors: " << color_part_id << " " << color_neighbor << std::endl;
+                                std::cout << "do i arrive here at all??? " << std::endl;
                                 continue;
-                            }
+                            }//*/
 /*
                             for (auto iter : interface_edge)
                             {

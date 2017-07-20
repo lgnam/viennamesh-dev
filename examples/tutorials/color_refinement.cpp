@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
 	std::string folder = "test/";
 
 	std::string outfilename = filename.substr(filename.find_last_of("/")+1);
-	outfilename.replace(outfilename.find(".vtu"), 12, "_initial.vtu");
+	outfilename.replace(outfilename.find(".vtu"), 12, "_refined.vtu");
 
 	folder += outfilename;
 

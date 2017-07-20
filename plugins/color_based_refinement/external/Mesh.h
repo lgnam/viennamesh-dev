@@ -523,9 +523,12 @@ public:
     inline void remove_nnlist(size_t id, size_t rem_id)
     {
       auto position = std::find(NNList[id].begin(), NNList[id].end(), rem_id);     
-     /* std::cout << "from " << id << " remove " << rem_id << " which is at " << *position << std::endl;    
+      //std::cout << "from " << id << " remove " << rem_id << " which is at " << *position << std::endl;    
       if (position == NNList[id].end())
-        std::cout << rem_id << " NOT FOUND" << std::endl;*/
+      {
+        //std::cerr << rem_id << " NOT FOUND" << std::endl;//*/
+        return;
+      }
       NNList[id].erase(position);
     }
 
