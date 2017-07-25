@@ -94,6 +94,7 @@ int main(int argc, char *argv[])
 	color.set_input("num_partitions", region_count);
 	color.set_input("filename", filename.c_str());
 	color.set_input("num_threads", num_threads);
+	color.set_input("single_mesh_output", true);
 	color.run();
 //*/
 /*
@@ -122,7 +123,12 @@ int main(int argc, char *argv[])
 	std::string folder = "test/";
 
 	std::string outfilename = filename.substr(filename.find_last_of("/")+1);
-	outfilename.replace(outfilename.find(".vtu"), 12, "_refined.vtu");
+	//outfilename.replace(outfilename.find(".vtu"), 12, "_refined.vtu");
+	outfilename.replace(outfilename.find(".vtu"), 12, "_refined_");
+	outfilename += std::to_string(region_count);
+	outfilename += "parts_";
+	outfilename += std::to_string(num_threads);
+	outfilename += "threads_own_metis.vtu";
 
 	folder += outfilename;
 

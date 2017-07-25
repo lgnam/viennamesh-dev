@@ -15,6 +15,7 @@ namespace viennamesh
 			data_handle<pragmatic::pragmatic_mesh> input_mesh = get_required_input<pragmatic::pragmatic_mesh>("mesh");
 			data_handle<int> num_partitions = get_required_input<int>("num_partitions");
 			data_handle<int> num_threads = get_input<int>("num_threads");
+			data_handle<bool> single_mesh_output = get_input<bool>("single_mesh_output");
 			string_handle input_file = get_input<string_handle>("filename");
 			string_handle algorithm = get_input<string_handle>("algorithm");
 		
@@ -253,76 +254,159 @@ namespace viennamesh
 
 			auto dimension = input_mesh()->get_number_dimensions();
 
-			output_mesh.resize(num_partitions());
+			//output_mesh.resize(num_partitions());
 
 			//TODO: REPLACE WITH TEMPLATED VERSION!!!
 			//convert pragmatic to viennagrid output
 			if (algo=="pragmatic")
 			{
 				viennamesh::info(5) << "Converting Pragmatic to ViennaGrid data structure" << std::endl;
-				std::cerr << "REPLACE THIS WITH IMPLICIT CONVERSION!!!" << std::endl;
+				viennamesh::info(5) << "  REPLACE THIS WITH IMPLICIT CONVERSION!!!" << std::endl;
 
 				if (dimension == 2)
-				{
-					for (size_t i = 0; i != InputMesh.pragmatic_partitions.size(); ++i)
+				{	
+					//std::cerr << "check if single mesh output" << std::endl;
+					//output mesh in a single file
+					if ( single_mesh_output.valid() && single_mesh_output() )
 					{
-						//get basic mesh information
-						size_t NNodes = InputMesh.pragmatic_partitions[i]->get_number_nodes();
-						size_t NElements = InputMesh.pragmatic_partitions[i]->get_number_elements(); 
-
-						//create empty vector of size NNodes containing viennagrid vertices
-						std::vector<VertexType> vertex_handles(NNodes);
-						
-						//iterating all pragmatic vertices and store their coordinates in the viennagrid vertices
-						for(size_t j = 0; j < NNodes; ++j)
+						for (size_t i = 0; i != InputMesh.pragmatic_partitions.size(); ++i)
 						{
-							vertex_handles[j] = viennagrid::make_vertex( output_mesh(i), viennagrid::make_point(InputMesh.pragmatic_partitions[i]->get_coords(j)[0], 
-																		InputMesh.pragmatic_partitions[i]->get_coords(j)[1]) );
-						} //end of for loop iterating all pragmatic vertices 
+							//get basic mesh information
+							size_t NNodes = InputMesh.pragmatic_partitions[i]->get_number_nodes();
+							size_t NElements = InputMesh.pragmatic_partitions[i]->get_number_elements(); 
 
-						//iterating all pragmatic elements and createg their corresponding viennagrid triangles
-						for (size_t j = 0; j < NElements; ++j)
+							//create empty vector of size NNodes containing viennagrid vertices
+							std::vector<VertexType> vertex_handles(NNodes);
+
+							//std::vector<int> vertex_mapping(NNodes, -1);
+							
+							//iterating all pragmatic vertices and store their coordinates in the viennagrid vertices
+							for(size_t j = 0; j < NNodes; ++j)
+							{
+								//if vertex is already in the mesh, than put the local index into the vertex_mapping vector use this index for the correct element creation
+								//if ()
+
+								vertex_handles[j] = viennagrid::make_vertex( output_mesh(), viennagrid::make_point(InputMesh.pragmatic_partitions[i]->get_coords(j)[0], 
+																			InputMesh.pragmatic_partitions[i]->get_coords(j)[1]) );
+							} //end of for loop iterating all pragmatic vertices 
+
+							//iterating all pragmatic elements and createg their corresponding viennagrid triangles
+							for (size_t j = 0; j < NElements; ++j)
+							{
+								index_t const* ENList_ptr = InputMesh.pragmatic_partitions[i]->get_element(j); 
+								viennagrid::make_triangle( output_mesh(), vertex_handles[*(ENList_ptr++)], vertex_handles[*(ENList_ptr++)], vertex_handles[*(ENList_ptr++)] );
+							} //end of iterating all pragmatic elements
+
+							//Update total number of vertices and elements
+							vertices += InputMesh.pragmatic_partitions[i]->get_number_nodes();
+							elements += InputMesh.pragmatic_partitions[i]->get_number_elements();
+						}
+					} //end of single mesh output
+					
+					//output each mesh partition in a single file
+					else
+					{
+						output_mesh.resize(num_partitions());
+
+						for (size_t i = 0; i != InputMesh.pragmatic_partitions.size(); ++i)
 						{
-							index_t const* ENList_ptr = InputMesh.pragmatic_partitions[i]->get_element(j); 
-							viennagrid::make_triangle( output_mesh(i), vertex_handles[*(ENList_ptr++)], vertex_handles[*(ENList_ptr++)], vertex_handles[*(ENList_ptr++)] );
-						} //end of iterating all pragmatic elements
+							//get basic mesh information
+							size_t NNodes = InputMesh.pragmatic_partitions[i]->get_number_nodes();
+							size_t NElements = InputMesh.pragmatic_partitions[i]->get_number_elements(); 
 
-						//Update total number of vertices and elements
-						vertices += InputMesh.pragmatic_partitions[i]->get_number_nodes();
-						elements += InputMesh.pragmatic_partitions[i]->get_number_elements();
-					}
+							//create empty vector of size NNodes containing viennagrid vertices
+							std::vector<VertexType> vertex_handles(NNodes);
+							
+							//iterating all pragmatic vertices and store their coordinates in the viennagrid vertices
+							for(size_t j = 0; j < NNodes; ++j)
+							{
+								vertex_handles[j] = viennagrid::make_vertex( output_mesh(i), viennagrid::make_point(InputMesh.pragmatic_partitions[i]->get_coords(j)[0], 
+																			InputMesh.pragmatic_partitions[i]->get_coords(j)[1]) );
+							} //end of for loop iterating all pragmatic vertices 
+
+							//iterating all pragmatic elements and createg their corresponding viennagrid triangles
+							for (size_t j = 0; j < NElements; ++j)
+							{
+								index_t const* ENList_ptr = InputMesh.pragmatic_partitions[i]->get_element(j); 
+								viennagrid::make_triangle( output_mesh(i), vertex_handles[*(ENList_ptr++)], vertex_handles[*(ENList_ptr++)], vertex_handles[*(ENList_ptr++)] );
+							} //end of iterating all pragmatic elements
+
+							//Update total number of vertices and elements
+							vertices += InputMesh.pragmatic_partitions[i]->get_number_nodes();
+							elements += InputMesh.pragmatic_partitions[i]->get_number_elements();
+						}
+					} //end of else ( multi mesh output )
 				} //end of if(dim == 2)
 
+				//dim == 3
 				else
 				{
-					for (size_t i = 0; i != InputMesh.pragmatic_partitions.size(); ++i)
+					//output mesh in a single file
+					if ( single_mesh_output.valid() && single_mesh_output() )
 					{
-						//get basic mesh information
-						size_t NNodes = InputMesh.pragmatic_partitions[i]->get_number_nodes();
-						size_t NElements = InputMesh.pragmatic_partitions[i]->get_number_elements(); 
+						for (size_t i = 0; i != InputMesh.pragmatic_partitions.size(); ++i)
+						{
+							//get basic mesh information
+							size_t NNodes = InputMesh.pragmatic_partitions[i]->get_number_nodes();
+							size_t NElements = InputMesh.pragmatic_partitions[i]->get_number_elements(); 
 
-						//create empty vector of size NNodes containing viennagrid vertices
-						std::vector<TetrahedronType> tet_handles(NNodes);
+							//create empty vector of size NNodes containing viennagrid vertices
+							std::vector<TetrahedronType> tet_handles(NNodes);
+							
+							//iterating all pragmatic vertices and store their coordinates in the viennagrid vertices
+							for(size_t j = 0; j < NNodes; ++j)
+							{
+								tet_handles[j] = viennagrid::make_vertex( output_mesh(), viennagrid::make_point(InputMesh.pragmatic_partitions[i]->get_coords(j)[0], 
+																			InputMesh.pragmatic_partitions[i]->get_coords(j)[1], InputMesh.pragmatic_partitions[i]->get_coords(j)[2]) );
+							} //end of for loop iterating all pragmatic vertices 
+
+							//iterating all pragmatic elements and createg their corresponding viennagrid triangles
+							for (size_t j = 0; j < NElements; ++j)
+							{
+								index_t const* ENList_ptr = InputMesh.pragmatic_partitions[i]->get_element(j); 
+								viennagrid::make_tetrahedron( output_mesh(), tet_handles[*(ENList_ptr++)], tet_handles[*(ENList_ptr++)], tet_handles[*(ENList_ptr++)], tet_handles[*(ENList_ptr++)] );
+							} //end of iterating all pragmatic elements
+
+							//Update total number of vertices and elements
+							vertices += InputMesh.pragmatic_partitions[i]->get_number_nodes();
+							elements += InputMesh.pragmatic_partitions[i]->get_number_elements();
+						}
+					} //end of if (single mesh output)
+
+					//output each mesh partition into a single file (multi mesh output)
+					else
+					{
+						output_mesh.resize(num_partitions());
 						
-						//iterating all pragmatic vertices and store their coordinates in the viennagrid vertices
-						for(size_t j = 0; j < NNodes; ++j)
+						for (size_t i = 0; i != InputMesh.pragmatic_partitions.size(); ++i)
 						{
-							tet_handles[j] = viennagrid::make_vertex( output_mesh(i), viennagrid::make_point(InputMesh.pragmatic_partitions[i]->get_coords(j)[0], 
-																		InputMesh.pragmatic_partitions[i]->get_coords(j)[1], InputMesh.pragmatic_partitions[i]->get_coords(j)[2]) );
-						} //end of for loop iterating all pragmatic vertices 
+							//get basic mesh information
+							size_t NNodes = InputMesh.pragmatic_partitions[i]->get_number_nodes();
+							size_t NElements = InputMesh.pragmatic_partitions[i]->get_number_elements(); 
 
-						//iterating all pragmatic elements and createg their corresponding viennagrid triangles
-						for (size_t j = 0; j < NElements; ++j)
-						{
-							index_t const* ENList_ptr = InputMesh.pragmatic_partitions[i]->get_element(j); 
-							viennagrid::make_tetrahedron( output_mesh(i), tet_handles[*(ENList_ptr++)], tet_handles[*(ENList_ptr++)], tet_handles[*(ENList_ptr++)], tet_handles[*(ENList_ptr++)] );
-						} //end of iterating all pragmatic elements
+							//create empty vector of size NNodes containing viennagrid vertices
+							std::vector<TetrahedronType> tet_handles(NNodes);
 
-						//Update total number of vertices and elements
-						vertices += InputMesh.pragmatic_partitions[i]->get_number_nodes();
-						elements += InputMesh.pragmatic_partitions[i]->get_number_elements();
-					}
-				} //end of else
+							//iterating all pragmatic vertices and store their coordinates in the viennagrid vertices
+							for(size_t j = 0; j < NNodes; ++j)
+							{
+								tet_handles[j] = viennagrid::make_vertex( output_mesh(i), viennagrid::make_point(InputMesh.pragmatic_partitions[i]->get_coords(j)[0], 
+																			InputMesh.pragmatic_partitions[i]->get_coords(j)[1], InputMesh.pragmatic_partitions[i]->get_coords(j)[2]) );
+							} //end of for loop iterating all pragmatic vertices 
+
+							//iterating all pragmatic elements and createg their corresponding viennagrid triangles
+							for (size_t j = 0; j < NElements; ++j)
+							{
+								index_t const* ENList_ptr = InputMesh.pragmatic_partitions[i]->get_element(j); 
+								viennagrid::make_tetrahedron( output_mesh(i), tet_handles[*(ENList_ptr++)], tet_handles[*(ENList_ptr++)], tet_handles[*(ENList_ptr++)], tet_handles[*(ENList_ptr++)] );
+							} //end of iterating all pragmatic elements
+
+							//Update total number of vertices and elements
+							vertices += InputMesh.pragmatic_partitions[i]->get_number_nodes();
+							elements += InputMesh.pragmatic_partitions[i]->get_number_elements();
+						}
+					} //end of multi mesh output
+				} //end of else (dim == 3)
 			} //end of convert pragmatic to viennagrid output
 
 			//convert triangle to viennagrid output

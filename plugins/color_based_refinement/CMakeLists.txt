@@ -14,6 +14,19 @@ if (METIS_FOUND)
 else()
   message(FATAL_ERROR "METIS not found")
 endif()
+
+find_library(MTMETIS_LIBRARY 
+             NAMES mtmetis
+             HINTS /usr/local/lib/
+             PATH_SUFFIXES lib)
+message(STATUS "MTMETIS library: ${MTMETIS_LIBRARY}")
+
+find_library(WILDRIVER_LIBRARY 
+             NAMES wildriver
+             HINTS /usr/local/lib/
+             PATH_SUFFIXES lib)
+message(STATUS "WILDRIVER library: ${WILDRIVER_LIBRARY}")
+
 #Set flag if OpenMP has been found on the system or output an error if not, since it is required for the use of pragmatic
 find_package(OpenMP)
 if (OPENMP_FOUND)
@@ -40,6 +53,9 @@ VIENNAMESH_ADD_PLUGIN(viennamesh-module-color-refinement 	plugin.cpp
 if (METIS_FOUND)
   target_link_libraries(viennamesh-module-color-refinement ${METIS_LIBRARIES})
 endif()
+
+target_link_libraries(viennamesh-module-color-refinement ${MTMETIS_LIBRARY} ${WILDRIVER_LIBRARY})
+
 
 find_package(VTK REQUIRED)
 include(${VTK_USE_FILE})

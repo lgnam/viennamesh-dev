@@ -19,6 +19,8 @@
 
 //all other includes
 #include "metis.h"
+#include "mtmetis.h"
+
 #include <unordered_map>
 #include <map>
 #include <numeric>  
@@ -515,7 +517,9 @@ bool MeshPartitions::MetisPartitioning()
     }
     outfile.close();
     //END OF DEBUG*/
+/*
     //Call Metis Partitioning Function (see metis manual for details on the parameters and on the use of the metis API)
+    std::cout << "USING METIS PART MESH DUAL" << std::endl;   
     METIS_PartMeshDual(&num_elements,
                          &num_nodes,
                          eptr.data(),
@@ -529,11 +533,10 @@ bool MeshPartitions::MetisPartitioning()
                          &result,
                          epart.data(),
                          npart.data());
-
-    std::cout << "USING METIS PART MESH DUAL" << std::endl;
                          //*/
 
-   /*METIS_PartMeshNodal (&num_elements,
+    /*std::cout << "USING METIS PART MESH NODAL" << std::endl;
+   METIS_PartMeshNodal (&num_elements,
                         &num_nodes,
                         eptr.data(),
                         eind.data(),
@@ -545,19 +548,68 @@ bool MeshPartitions::MetisPartitioning()
                         &result,
                         epart.data(),
                         npart.data());
+                        //*/
 
-    std::cout << "USING METIS PART MESH NODAL" << std::endl;
+    viennamesh::info(5) << "USING MT-METIS" << std::endl;
 
-    /*
-    METIS_MeshToDual(&num_elements,
-                     &num_nodes,
-                     eptr.data(),
-                     eind.data(),
-                     &ncommon,
-                     &numflag,
-                     &xadj,
-                     &adjncy);
-    */
+    idx_t *xadj=NULL, *adjncy=NULL, *nptr=NULL, *nind=NULL;
+    idx_t ncon=1, pnumflag=0;
+    int rstatus = METIS_OK;
+    idx_t *options;
+
+    idx_t *ne = &num_elements;
+    idx_t *nn = &num_nodes;
+
+    /* renumber the mesh */
+    //ChangeMesh2CNumbering
+    /* idx_t i;
+
+    for (i=0; i<=*ne; i++)
+        eptr[i]--;
+    for (i=0; i<eptr[*ne]; i++)
+        eind[i]--;
+    //*/
+
+    /* get the dual graph */
+    METIS_MeshToDual(ne, nn, eptr.data(), eind.data(), &ncommon, &pnumflag, &xadj, &adjncy);
+/*
+    //convert data types as mt-metis expects them
+    unsigned int u_ne = original_mesh->get_number_elements();
+    unsigned int u_ncon = 1;
+    unsigned int u_num_regions = num_regions;
+
+    unsigned int *u_xadj = NULL;
+
+    for (size_t i = 0; i < num_nodes; ++i)
+    {
+        u_xadj[i] = xadj[i];
+    }
+
+    std::vector<unsigned int> u_epart(u_ne);
+
+    for (size_t i = 0; i < u_ne; ++i)
+    {
+        u_epart[i] = epart[i];
+    }
+*/
+
+    METIS_PartGraphKway(ne, &ncon, xadj, adjncy, NULL, NULL, NULL, &num_regions, NULL, NULL, NULL, &result, epart.data());
+
+    /*MTMETIS_PartGraphKway(const_cast<unsigned int*>( (unsigned int*) ne), 
+                          const_cast<unsigned int*>( (unsigned int*) &ncon), 
+                          const_cast<unsigned int*>( (unsigned int*) xadj), 
+                          const_cast<unsigned int*>( (unsigned int*) adjncy), 
+                          NULL, 
+                          NULL, 
+                          NULL, 
+                          const_cast<unsigned int*>( (unsigned int*) &num_regions), 
+                          NULL, 
+                          NULL, 
+                          NULL, 
+                          &result, 
+                          const_cast<unsigned int*>( (unsigned int*) epart.data()) );
+
+    //*/
 
     viennamesh::info(5) << "Created " << num_regions << " mesh partitions using Metis" << std::endl;
 
@@ -572,15 +624,15 @@ bool MeshPartitions::MetisPartitioning()
     //epart_stream.close();
     //END OF DEBUG*/
 
-/*
+    /*//DEBUG
     std::cout << "xadj: " << std::endl;
     for (size_t i = 0; i < num_nodes+1; ++i)
         std::cout << " " << i << ": " << xadj[i] << std::endl;
-/*
+
     std::cout << "adjncy: " << std::endl;
     for (size_t i = 0; i < num_edges; ++i)
         std::cout << " " << i << ": " << adjncy[i] << std::endl;
-*/
+    //END OF DEBUG*/
 
     return true;
 }//end of MetisPartitioning
