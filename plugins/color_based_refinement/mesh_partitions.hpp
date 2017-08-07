@@ -519,7 +519,7 @@ bool MeshPartitions::MetisPartitioning()
     //END OF DEBUG*/
 /*
     //Call Metis Partitioning Function (see metis manual for details on the parameters and on the use of the metis API)
-    std::cout << "USING METIS PART MESH DUAL" << std::endl;   
+    std::cout << "USING METIS PART MESH DUAL" << std::endl;   //*/
     METIS_PartMeshDual(&num_elements,
                          &num_nodes,
                          eptr.data(),
@@ -549,13 +549,16 @@ bool MeshPartitions::MetisPartitioning()
                         epart.data(),
                         npart.data());
                         //*/
-
+/*
     viennamesh::info(5) << "USING MT-METIS" << std::endl;
 
     idx_t *xadj=NULL, *adjncy=NULL, *nptr=NULL, *nind=NULL;
     idx_t ncon=1, pnumflag=0;
     int rstatus = METIS_OK;
     idx_t *options;
+    idx_t *ubvec;
+
+    *ubvec=1;
 
     idx_t *ne = &num_elements;
     idx_t *nn = &num_nodes;
@@ -571,7 +574,7 @@ bool MeshPartitions::MetisPartitioning()
     //*/
 
     /* get the dual graph */
-    METIS_MeshToDual(ne, nn, eptr.data(), eind.data(), &ncommon, &pnumflag, &xadj, &adjncy);
+   // METIS_MeshToDual(ne, nn, eptr.data(), eind.data(), &ncommon, &pnumflag, &xadj, &adjncy);
 /*
     //convert data types as mt-metis expects them
     unsigned int u_ne = original_mesh->get_number_elements();
@@ -593,9 +596,11 @@ bool MeshPartitions::MetisPartitioning()
     }
 */
 
-    METIS_PartGraphKway(ne, &ncon, xadj, adjncy, NULL, NULL, NULL, &num_regions, NULL, NULL, NULL, &result, epart.data());
+  //  METIS_PartGraphKway(ne, &ncon, xadj, adjncy, NULL, NULL, NULL, &num_regions, NULL, NULL, NULL, &result, epart.data()); //*/
+/*
+    mtmetis_init_options();
 
-    /*MTMETIS_PartGraphKway(const_cast<unsigned int*>( (unsigned int*) ne), 
+    MTMETIS_PartGraphKway(const_cast<unsigned int*>( (unsigned int*) ne), 
                           const_cast<unsigned int*>( (unsigned int*) &ncon), 
                           const_cast<unsigned int*>( (unsigned int*) xadj), 
                           const_cast<unsigned int*>( (unsigned int*) adjncy), 
@@ -772,7 +777,7 @@ bool MeshPartitions::ColorPartitions()
     {
         color_partitions[ partition_colors[i] ].push_back(i);
     }
-/*
+
     //DEBUG
     //std::cout << "Number of used colors: " << colors << std::endl;
     std::cout << "  Partition | Color " << std::endl;
@@ -794,7 +799,6 @@ bool MeshPartitions::ColorPartitions()
         {
            std::cout << it << " ";
         }
-
         std::cout << std::endl;
     }
     //END OF DEBUG*/
@@ -1948,7 +1952,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
                     //if (color == 0)
                     {
                         //std::cout << "refine partition " << part_id << std::endl;
-                        refiner.refine(0.0005, nodes_partition_ids, l2g_vertices_tmp, g2l_vertices_tmp, part_id, outbox_data, 
+                        /*refiner.refine(0.0005, nodes_partition_ids, l2g_vertices_tmp, g2l_vertices_tmp, part_id, outbox_data, 
                                        partition_colors, partition_adjcy[part_id]);//*/
                     }
                     

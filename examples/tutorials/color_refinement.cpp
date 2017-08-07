@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
 	color.set_input("filename", filename.c_str());
 	color.set_input("num_threads", num_threads);
 	color.set_input("single_mesh_output", true);
-	color.run();
+	color.run(); //*/
 //*/
 /*
 	viennamesh::algorithm_handle triangle = context.make_algorithm("triangle_make_mesh");
@@ -113,22 +113,26 @@ int main(int argc, char *argv[])
 	merger.set_default_source(triangle);
 	merger.run();
 */
-/*
+
 	//Write output mesh
 	viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
 	mesh_writer.set_default_source(color);
 	
 	//construct filename
 	
-	std::string folder = "test/";
+	std::string folder = "test/100x100x100/";
 
 	std::string outfilename = filename.substr(filename.find_last_of("/")+1);
-	//outfilename.replace(outfilename.find(".vtu"), 12, "_refined.vtu");
-	outfilename.replace(outfilename.find(".vtu"), 12, "_refined_");
-	outfilename += std::to_string(region_count);
+	//outfilename.replace(outfilename.find(".vtu"), 12, "_initial.vtp");//*
+	outfilename.replace(outfilename.find(".vtu"), 17, "_single_initial_");
+	outfilename += std::to_string(num_threads);
+	outfilename+= "threads_";
+	outfilename+= std::to_string(region_count);
+	outfilename+= "parts.vtu";
+	/*outfilename += std::to_string(region_count);
 	outfilename += "parts_";
 	outfilename += std::to_string(num_threads);
-	outfilename += "threads_own_metis.vtu";
+	outfilename += "threads_own_metis.vtu";//*/
 
 	folder += outfilename;
 

@@ -47,7 +47,7 @@ class Outbox
 
         int verts_in_part(int part_id)
         {
-            auto num_verts {0};
+            int num_verts = 0;
             for (size_t i = 0; i < this->num_verts(); ++i)
             {
                 if ( data[4*i] == part_id )

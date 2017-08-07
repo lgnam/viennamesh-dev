@@ -11,6 +11,7 @@ viennamesh_error viennamesh_plugin_init(viennamesh_context context)
   viennamesh::register_conversion<viennamesh::pragmatic::pragmatic_mesh, viennagrid_mesh>(context); //Pragmatic data structure --> Viennagrid data structure
 
   viennamesh::register_algorithm<viennamesh::color_refinement>(context);
+  
   return VIENNAMESH_SUCCESS;
 }
 
