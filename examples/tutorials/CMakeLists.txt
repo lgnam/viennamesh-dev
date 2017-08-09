@@ -54,8 +54,8 @@ add_executable(pragmatic_refine_multi_region_mesh pragmatic_refine_multi_region_
 target_link_libraries(pragmatic_refine_multi_region_mesh viennameshpp)
 target_link_libraries(pragmatic_refine_multi_region_mesh ${VTK_LIBRARIES})
 
-add_executable(color_chess color_chess.cpp)
-target_link_libraries(color_chess viennameshpp)
+add_executable(coloring coloring.cpp)
+target_link_libraries(coloring viennameshpp)
 
 add_executable(color_refinement color_refinement.cpp)
 target_link_libraries(color_refinement viennameshpp)

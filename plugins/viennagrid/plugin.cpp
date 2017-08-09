@@ -22,6 +22,7 @@
 #include "uniform_refine.hpp"
 #include "change_cell_region.hpp"
 #include "chessboard_coloring.hpp"
+#include "parallel_coloring.hpp"
 
 
 viennamesh_error viennamesh_plugin_init(viennamesh_context context)
@@ -54,6 +55,7 @@ viennamesh_error viennamesh_plugin_init(viennamesh_context context)
   viennamesh::register_algorithm<viennamesh::change_cell_region>(context);
 
   viennamesh::register_algorithm<viennamesh::chessboard_coloring>(context);
+  viennamesh::register_algorithm<viennamesh::parallel_coloring>(context);
 
   return VIENNAMESH_SUCCESS;
 }
