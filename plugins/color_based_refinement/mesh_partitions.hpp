@@ -520,7 +520,7 @@ bool MeshPartitions::MetisPartitioning()
 /*
     //Call Metis Partitioning Function (see metis manual for details on the parameters and on the use of the metis API)
     std::cout << "USING METIS PART MESH DUAL" << std::endl;   //*/
-    METIS_PartMeshDual(&num_elements,
+    /*METIS_PartMeshDual(&num_elements,
                          &num_nodes,
                          eptr.data(),
                          eind.data(),
@@ -549,19 +549,24 @@ bool MeshPartitions::MetisPartitioning()
                         epart.data(),
                         npart.data());
                         //*/
-/*
+
     viennamesh::info(5) << "USING MT-METIS" << std::endl;
 
     idx_t *xadj=NULL, *adjncy=NULL, *nptr=NULL, *nind=NULL;
-    idx_t ncon=1, pnumflag=0;
-    int rstatus = METIS_OK;
-    idx_t *options;
-    idx_t *ubvec;
+    idx_t pnumflag=0;
+    //unsigned int ncon = 1;
+    //int rstatus = METIS_OK;
+    double * options = mtmetis_init_options();
+    
+    options[MTMETIS_OPTION_NTHREADS] = nthreads;
+    options[MTMETIS_OPTION_VERBOSITY] = 0;
+   // idx_t *ne = &num_elements;
+   // idx_t *nn = &num_nodes;
+
+    /*idx_t *ubvec=NULL;
 
     *ubvec=1;
-
-    idx_t *ne = &num_elements;
-    idx_t *nn = &num_nodes;
+*
 
     /* renumber the mesh */
     //ChangeMesh2CNumbering
@@ -573,50 +578,99 @@ bool MeshPartitions::MetisPartitioning()
         eind[i]--;
     //*/
 
+    //DEBUG
+    //unsigned int ncon = 1;
+    const uint32_t ne = 15;
+    const uint32_t ncon = 1;
+
+
     /* get the dual graph */
-   // METIS_MeshToDual(ne, nn, eptr.data(), eind.data(), &ncommon, &pnumflag, &xadj, &adjncy);
-/*
-    //convert data types as mt-metis expects them
-    unsigned int u_ne = original_mesh->get_number_elements();
-    unsigned int u_ncon = 1;
-    unsigned int u_num_regions = num_regions;
+    METIS_MeshToDual(&num_elements, &num_nodes, eptr.data(), eind.data(), &ncommon, &pnumflag, &xadj, &adjncy);
 
-    unsigned int *u_xadj = NULL;
-
-    for (size_t i = 0; i < num_nodes; ++i)
+    /*
+    //DEBUG
+    std::cout << "xadj" << std::endl;
+    for (size_t i = 0; i < num_elements; ++i)
     {
-        u_xadj[i] = xadj[i];
+        std::cout << xadj[i] << ", ";
     }
+    std::cout << std::endl;
 
-    std::vector<unsigned int> u_epart(u_ne);
-
-    for (size_t i = 0; i < u_ne; ++i)
+    std::cout << "adjncy" << std::endl;
+    for (size_t i = 0; i < (3*num_elements-20); ++i)
     {
-        u_epart[i] = epart[i];
+        std::cout << adjncy[i] << ", ";
     }
-*/
+    std::cout << std::endl;
+    //END OF DEBUG//*/
 
-  //  METIS_PartGraphKway(ne, &ncon, xadj, adjncy, NULL, NULL, NULL, &num_regions, NULL, NULL, NULL, &result, epart.data()); //*/
+    //idx_t *nn = NULL;
+    //const unsigned int xadj_arr[] = {0,2,5,8,11,13,16,20,24,28,31,33,36,39,42,44};
+    //const unsigned int adjncy_arr[] = {1,5,0,2,6,1,3,7,2,4,8,3,9,0,6,10,1,5,7,11,2,6,8,12,3,7,9,13,4,8,14,5,11,6,10,12,7,11,13,8,12,14,9,13};
+    //END OF DEBUG
+
+    const unsigned int* xadj_arr = const_cast<unsigned int*>( (unsigned int*) xadj);
+    const unsigned int* adjncy_arr = const_cast<unsigned int*>( (unsigned int*) adjncy);
 /*
-    mtmetis_init_options();
+    //DEBUG
+    std::cout << "xadj_arr" << std::endl;
+    for (size_t i = 0; i < num_elements; ++i)
+    {
+        std::cout << xadj_arr[i] << ", ";
+    }
+    std::cout << std::endl;
 
-    MTMETIS_PartGraphKway(const_cast<unsigned int*>( (unsigned int*) ne), 
-                          const_cast<unsigned int*>( (unsigned int*) &ncon), 
-                          const_cast<unsigned int*>( (unsigned int*) xadj), 
-                          const_cast<unsigned int*>( (unsigned int*) adjncy), 
+    std::cout << "adjncy_arr" << std::endl;
+    for (size_t i = 0; i < (3*num_elements-20); ++i)
+    {
+        std::cout << adjncy_arr[i] << ", ";
+    }
+    std::cout << std::endl;
+    //END OF DEBUG*/
+
+    const unsigned int nregions = num_regions;
+
+    epart.resize(num_elements);
+
+    unsigned int where[num_elements];
+
+    viennamesh::info(5) << "  Partitioning with MTMETIS_PartGraphKway" << std::endl;
+
+    MTMETIS_PartGraphKway(//const_cast<unsigned int*>( (unsigned int*) &ne), 
+                          const_cast<unsigned int*>( (unsigned int*) &num_elements),
+                          //const_cast<unsigned int*>( (unsigned int*) &ncon), 
+                          &ncon,
+                          xadj_arr, 
+                          adjncy_arr, 
+                          //NULL,
+                          //NULL,
                           NULL, 
                           NULL, 
                           NULL, 
-                          const_cast<unsigned int*>( (unsigned int*) &num_regions), 
+                          &nregions, 
+                          //NULL,
                           NULL, 
                           NULL, 
-                          NULL, 
+                          options, 
+                          //NULL,
+                          //NULL,
+                          //NULL);
                           &result, 
+                          //where);
                           const_cast<unsigned int*>( (unsigned int*) epart.data()) );
 
     //*/
 
     viennamesh::info(5) << "Created " << num_regions << " mesh partitions using Metis" << std::endl;
+/*
+    //DEBUG
+    for (size_t i = 0; i < epart.size(); ++i)
+    {
+        std::cout << i << ": " << epart[i] << std::endl;
+    }
+
+    exit(0);
+    //END OF DEBUG*/
 
     /*//DEBUG
     ofstream epart_stream;
@@ -777,7 +831,7 @@ bool MeshPartitions::ColorPartitions()
     {
         color_partitions[ partition_colors[i] ].push_back(i);
     }
-
+/*
     //DEBUG
     //std::cout << "Number of used colors: " << colors << std::endl;
     std::cout << "  Partition | Color " << std::endl;
