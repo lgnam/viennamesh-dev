@@ -1759,7 +1759,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
 
                         // Start element healing
                         // std::cout << "start element healing" << std::endl;
-                        auto splitCnt {0};
+                        auto splitCnt = 0;
 
                         for (auto ele_id : elements_to_heal)
                         {

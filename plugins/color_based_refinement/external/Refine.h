@@ -187,7 +187,7 @@ public:
             //auto det_0 = std::chrono::system_clock::now();
             bool adapt_interface = false;
             //bool is_in_outbox = false;
-            auto target_part_id {0};
+            auto target_part_id = 0;
 
             #pragma omp single nowait
             {
@@ -273,7 +273,7 @@ public:
 
                             //std::cout << "global IDs: " << l2g_vertices[i] << " and " << l2g_vertices[otherVertex] << std::endl;
 
-                            auto color_part_id {-1}, color_neighbor {-1};
+                            auto color_part_id = -1, color_neighbor = -1;
 
                             //if color of the neighbor is smaller than the own color, refinement must not happen!
                             if (interface_edge[0] == part_id)
