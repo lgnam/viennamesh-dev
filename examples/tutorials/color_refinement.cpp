@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 	merger.set_default_source(triangle);
 	merger.run();
 */
-
+/*
 	//Write output mesh
 	viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
 	mesh_writer.set_default_source(color);
@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 	std::string folder = "test/100x100x100/";
 
 	std::string outfilename = filename.substr(filename.find_last_of("/")+1);
-	//outfilename.replace(outfilename.find(".vtu"), 12, "_initial.vtp");//*
+/*	//outfilename.replace(outfilename.find(".vtu"), 12, "_initial.vtp");//*
 	outfilename.replace(outfilename.find(".vtu"), 17, "_single_initial_");
 	outfilename += std::to_string(num_threads);
 	outfilename+= "threads_";
@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
 	outfilename += "parts_";
 	outfilename += std::to_string(num_threads);
 	outfilename += "threads_own_metis.vtu";//*/
-
+/*
 	folder += outfilename;
 
 	mesh_writer.set_input("filename", folder.c_str());

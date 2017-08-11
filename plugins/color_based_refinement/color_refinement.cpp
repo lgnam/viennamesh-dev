@@ -22,6 +22,7 @@ namespace viennamesh
 			info(1) << name() << std::endl;
 			
 			size_t found = input_file().find_last_of("/");
+			size_t find_vtu = input_file().find_last_of(".");
 			info(1) << input_file().substr(found+1) << std::endl;
 
 			info(1) << "  Number of vertices: " << input_mesh()->get_number_nodes() << std::endl;
@@ -51,7 +52,7 @@ namespace viennamesh
 			{
 				viennamesh::error(1) << "'" << algorithm() << "'" << " is not a valid algorithm!" << std::endl;
 				return false;
-			}					
+			}				
 
 			MeshPartitions InputMesh(input_mesh(), num_partitions(), input_file().substr(found+1), num_threads());
 		
@@ -125,7 +126,11 @@ namespace viennamesh
 			InputMesh.GetRefinementStats(&r_vertices, &r_elements, algo);
 
 			ofstream csv;
-			csv.open("times.csv", ios::app);
+			std::string csv_name = "times_";
+			csv_name+= input_file().substr(found+1, find_vtu-found-1);
+			csv_name+=".csv";
+
+			csv.open(csv_name.c_str(), ios::app);
 
 			//csv << "File, Threads, Vertices, Elements, Desired Partitions, Created Partitions, Colors, Metis [s], Adjacency Info [s], 
 			//Coloring [s], Parallel DSs [s], Prep [s], Nodes [s], g2l [s], l2g [s], Coords [s], ENList [s], new Mesh [s], Boundary [s], Metric [s],
