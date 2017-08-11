@@ -1185,9 +1185,9 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
 
             Outbox outbox_data;
 
-            auto msize {0};
-            auto nedge {0};  
-            auto nloc {0};
+            auto msize = 0;
+            auto nedge = 0;  
+            auto nloc = 0;
 
             if (dim == 2)
             {
@@ -1347,7 +1347,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
             //Create ENLists for local partition and the element-index-mappings
   //          auto enlist_tic = std::chrono::system_clock::now();
 
-            auto ctr {0};          
+            auto ctr = 0;          
 
             std::vector<int>ENList_part;
 
@@ -1441,7 +1441,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
             //Heal mesh if the partition has data in its outbox
             auto heal_tic = omp_get_wtime();
 
-            auto orig_NNodes {partition->get_number_nodes()};
+            auto orig_NNodes = partition->get_number_nodes();
 
             //if (color > 0 && dim == 2)
             if (color > 0)
@@ -1924,7 +1924,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
                 metric_field.add_field(&(psi[0]), eta, 1);
     */
 
-                    for (auto i {0}; i < partition->get_number_nodes(); ++i)
+                    for (auto i = 0; i < partition->get_number_nodes(); ++i)
                     {
                         double m[] = {1.0, 1.0, 0.0};
                         metric_field.set_metric(m, i);
@@ -1942,7 +1942,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
                    /* std::cout << "  set metric 3D" << std::endl;
                     std::cout << partition->get_number_nodes() << " " << orig_NNodes << std::endl;//*/
 
-                    for (auto i {0}; i < partition->get_number_nodes(); ++i)
+                    for (auto i = 0; i < partition->get_number_nodes(); ++i)
                     {
                         double m[] = {1.0, 1.0, 1.0, 0.0, 0.0, 0.0};
                         metric_field.set_metric(m, i);
@@ -1965,7 +1965,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
  
             //double int_check_time {0.0};
             //double triangulate_time {0.0};
-            auto call_to_refine_time {0.0};
+            auto call_to_refine_time = 0.0;
             //double tri_ds_time{0.0};
           // auto refine_tic = std::chrono::system_clock::now();
             auto refine_tic = omp_get_wtime();
