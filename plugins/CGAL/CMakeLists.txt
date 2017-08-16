@@ -1,3 +1,6 @@
+#libigl & Eigen include path
+include_directories(../statistics/external/)
+
 set( CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS true )
 
 if ( COMMAND cmake_policy )
@@ -22,6 +25,9 @@ endif()
 VIENNAMESH_ADD_PLUGIN(cgal_module
  		      plugin.cpp
  		      cgal_mesh.cpp
-              	      cgal_mesh_simplification.cpp
+      	      cgal_mesh_simplification.cpp
 		      cgal_automatic_mesh_simplification.cpp
-                      cgal_mesh_simplification.cpp )
+              cgal_mesh_simplification.cpp
+              cgal_statistic.cpp
+              cgal_statistic_funktions.cpp
+)
