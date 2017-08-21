@@ -65,7 +65,8 @@ class MeshPartitions
                                                std::vector<double>& ref_detail_log);//, std::vector<double>& build_tri_ds);   //Create Pragmatic Meshes storing the mesh partitions in parallel*/
         bool CreatePragmaticDataStructures_par(std::string algorithm, std::vector<double>& threads_log, 
                                                std::vector<double>& heal_log, std::vector<double>& metric_log,
-                                               std::vector<double>& call_refine_log, std::vector<double>& refine_log);
+                                               std::vector<double>& call_refine_log, std::vector<double>& refine_log,
+                                               std::vector<double>& mesh_log);
         bool CreateNeighborhoodInformation();                                                 //Create neighborhood information for vertices and partitions
         bool ColorPartitions();                                                               //Color the partitions
         bool WritePartitions();                                                               //ONLY FOR DEBUGGING!
@@ -281,168 +282,18 @@ struct Coords_t
 //Tasks: TODO
 //MeshPartitions::MeshPartitions(Mesh<double>* original_mesh, int num_regions, std::string filename)
 MeshPartitions::MeshPartitions(Mesh<double> * const orig_mesh, int nregions, std::string filename, int threads)
-{   /*
-    ofstream memout;
-    memout.open("memout.csv", ios::app);
-    memout << filename << ", ";
-    memout.close();
-    
-    //Create metric field
-    MetricField<double,2> metric_field(*orig_mesh);
-
-    double eta = 0.0001;
-    std::vector<double> psi(orig_mesh->get_number_nodes());
-
-    for (size_t i = 0; i < orig_mesh->get_number_nodes(); ++i)
-    {
-        //std::cerr << i << "/" << orig_mesh->get_number_nodes() << std::endl;
-        
-        double x = 2*orig_mesh->get_coords(i)[0];
-        double y = 2*orig_mesh->get_coords(i)[1];
-        psi[i] = 0.100000000000000*sin(50*x) + atan2(-0.100000000000000, (double)(2*x - sin(5*y)));
-        /*
-        double x = partition->get_coords(i)[0];
-        double y = partition->get_coords(i)[1];
-        psi[i] = x*y;
-        
-        psi[i]=10;
-        //*/
-/*    }
-    std::cerr << "add_field" << std::endl;
-    metric_field.add_field(&(psi[0]), eta, 1);
-    std::cerr << "update_mesh" << std::endl;
-    metric_field.update_mesh();
-    std::cerr << "wow" << std::endl;
-/*
-    MetricField<double,2> metric_field(*orig_mesh);
-
-    size_t NNodes = orig_mesh->get_number_nodes();
-    for(size_t i=0; i<NNodes; i++) {
-        //double psi = orig_mesh->get_coords(i)[0] * orig_mesh->get_coords(i)[1];
-        double x = orig_mesh->get_coords(i)[0];
-        double y = orig_mesh->get_coords(i)[1];
-        //std::cerr << x << " " << y << " " << x*y << std::endl;
-        double m[] = {0.0000000000001, 0.0, 0.0000000000001};
-        metric_field.set_metric(m, i);
-    }
-    metric_field.update_mesh();
-    */
+{   
     original_mesh = orig_mesh;
     num_regions = nregions;
     nthreads = threads;
     file = filename;
-
-    /* 
-    auto overall_tic = std::chrono::system_clock::now();
-
-    auto wall_tic = std::chrono::system_clock::now();
-        MetisPartitioning(original_mesh, num_regions);
-    std::chrono::duration<double> partitioning_duration = std::chrono::system_clock::now() - wall_tic;
-    //viennamesh::info(1) << "  Partitioning time " << wall_clock_duration.count() << std::endl;
-
-    wall_tic = std::chrono::system_clock::now();
-        CreateNeighborhoodInformation(original_mesh, num_regions);
-    std::chrono::duration<double> adjacency_duration = std::chrono::system_clock::now() - wall_tic;
-    //viennamesh::info(1) << "  Creating adjacency information time " << wall_clock_duration.count() << std::endl;
-
-    wall_tic = std::chrono::system_clock::now();
-        ColorPartitions(num_regions);
-    std::chrono::duration<double> coloring_duration = std::chrono::system_clock::now() - wall_tic;
-    //viennamesh::info(1) << "  Coloring time " << wall_clock_duration.count() << std::endl;
-
-    std::chrono::duration<double> overall_duration = std::chrono::system_clock::now() - overall_tic;
-    //viennamesh::info(1) << "  Overall time inside " << overall_duration.count() << std::endl;
-
-    CreatePragmaticDataStructures_ser(original_mesh, num_regions); //Think about where I create the actual data structures!!!
-
-    ofstream csv;
-    csv.open("times.csv", ios::app);
-
-    //csv << "File, Vertices, Elements, Partitions, Colors, Partitioning [s], Adjacency Info [s], Coloring [s], Total [s]" << std::endl;
-    csv << filename << ", " << original_mesh->get_number_nodes() << ", " << original_mesh->get_number_elements() << ", ";
-    csv << num_regions << ", " << max+1 << ", " << colors << ", ";
-    csv <<  partitioning_duration.count() << ", ";
-    csv <<  adjacency_duration.count() << ", ";
-    csv <<  coloring_duration.count() << ", ";
-    csv <<  overall_duration.count() << std::endl;
-    csv.close();
-  
-    //WritePartitions();
-*/
 } //end of Constructor
 
 //Destructor
 //
 //Tasks: TODO
 MeshPartitions::~MeshPartitions()
-{/*
-    std::cout << "g2l mappings" << std::endl;
-    std::cout << "found " << num_nodes << " vertices in the refined mesh" << std::endl;
-    std::cout << "found " << num_elements << " elements in the refined mesh" << std::endl;
-
-    std::vector<int> vertex_appearances(num_nodes);
-    std::vector<int> element_appearances(num_elements);
-
-    //WRITE LOOP THAT FILLS ABOVE VECTOR WITH THE PARTITION IDS OF THE PARTITIONS WHICH INCLUDE THE VERTEX
-    for (size_t part = 0; part < pragmatic_partitions.size(); ++part)
-    {
-        //std::cout << "Partition " << part << " has color " << partition_colors[part] << std::endl;
-        for (size_t local_vertex = 0; local_vertex < pragmatic_partitions[part]->get_number_nodes(); ++local_vertex)
-        {
-            std::cout << " " << local_vertex << " " << l2g_vertex[part].at(local_vertex) << std::endl;
-            vertex_appearances[ l2g_vertex[part].at(local_vertex) ] = part;
-        }
-
-        for (size_t local_element = 0; local_element < pragmatic_partitions[part]->get_number_elements(); ++local_element)
-        {
-            element_appearances[ l2g_element[part].at(local_element) ] = part; 
-            //std::cout << local_element << ": " << l2g_element[part].at(local_element) << std::endl;
-            //element_appearances[ l2g_element[part].at(local_element) ].push_back(part);;
-        }
-    }
-
-    //get coords
-    std::vector<double> x_coords(num_nodes), y_coords(num_nodes);
-
-    for (size_t vert = 0; vert < num_nodes; ++vert)
-    {
-        double p[2];
-        //pragmatic_partitions[ vertex_appearances[vert].at(0) ]->get_coords( g2l_vertex[ vertex_appearances[vert].at(0) ], p);
-        //std::cout << "V: " << vert << " in " << vertex_appearances[vert] << std::endl;
-        //std::cout << "g2l: " << g2l_vertex[2].at(3) << std::endl;
-        pragmatic_partitions[vertex_appearances[vert]]->get_coords( g2l_vertex[ vertex_appearances[vert] ].at(vert), p );
-
-        x_coords[vert] = p[0];
-        y_coords[vert] = p[1];
-    }
-
-
-    //get ENList
-    //std::cout << "globalNElement: " << num_elements << std::endl;
-    std::vector<int> ENList(num_elements*3);
-
-    for (size_t ele = 0; ele < num_elements; ++ele)
-    {
-        //std::cout << "E: " << ele << " in " << element_appearances[ele] << " is " << g2l_element[element_appearances[ele]].at(ele) << std::endl;
-        const index_t* element_ptr = nullptr;
-        element_ptr = pragmatic_partitions[element_appearances[ele]]->get_element( g2l_element[ element_appearances[ele]].at(ele)  );
-        
-        ENList[3*ele+0] = l2g_vertex[element_appearances[ele]].at(*(element_ptr++));
-        ENList[3*ele+1] = l2g_vertex[element_appearances[ele]].at(*(element_ptr++));
-        ENList[3*ele+2] = l2g_vertex[element_appearances[ele]].at(*(element_ptr++));
-    }
-
-    std::cout << "create new mesh" << std::endl;
-    Mesh<double>* merged_output = new Mesh<double> (num_nodes, num_elements, &(ENList[0]), &(x_coords[0]), &(y_coords[0]));
-    merged_output->create_boundary();
-    //new Mesh<double>(num_points_part, num_elements_part, &(ENList_part[0]), &(x_coords[0]), &(y_coords[0]));
-
-    VTKTools<double>::export_vtu("adapted_mesh", merged_output);
-
-    std::cout << "merged_output: " << merged_output->get_number_nodes() << " " << merged_output->get_number_elements() << std::endl;
-
-    //delete merged_output;
-*/
+{
     //free used memory
     for (size_t i = 0; i < pragmatic_partitions.size(); ++i)
     {
@@ -517,9 +368,9 @@ bool MeshPartitions::MetisPartitioning()
     }
     outfile.close();
     //END OF DEBUG*/
-/*
+
     //Call Metis Partitioning Function (see metis manual for details on the parameters and on the use of the metis API)
-    std::cout << "USING METIS PART MESH DUAL" << std::endl;   //*/
+    //*/
     /*METIS_PartMeshDual(&num_elements,
                          &num_nodes,
                          eptr.data(),
@@ -533,9 +384,10 @@ bool MeshPartitions::MetisPartitioning()
                          &result,
                          epart.data(),
                          npart.data());
+    viennamesh::info(5) << "Created " << num_regions << " mesh partitions using METIS_PartMeshNodal" << std::endl;
                          //*/
 
-    /*std::cout << "USING METIS PART MESH NODAL" << std::endl;
+    /*
    METIS_PartMeshNodal (&num_elements,
                         &num_nodes,
                         eptr.data(),
@@ -548,92 +400,31 @@ bool MeshPartitions::MetisPartitioning()
                         &result,
                         epart.data(),
                         npart.data());
+
+    viennamesh::info(5) << "Created " << num_regions << " mesh partitions using METIS_PartMeshNodal" << std::endl;
                         //*/
 
-    viennamesh::info(5) << "USING MT-METIS" << std::endl;
-
-    idx_t *xadj=NULL, *adjncy=NULL, *nptr=NULL, *nind=NULL;
+    idx_t *xadj=NULL, *adjncy=NULL;//, *nptr=NULL, *nind=NULL;
     idx_t pnumflag=0;
-    //unsigned int ncon = 1;
-    //int rstatus = METIS_OK;
     double * options = mtmetis_init_options();
     
     options[MTMETIS_OPTION_NTHREADS] = nthreads;
     options[MTMETIS_OPTION_VERBOSITY] = 0;
-   // idx_t *ne = &num_elements;
-   // idx_t *nn = &num_nodes;
 
-    /*idx_t *ubvec=NULL;
-
-    *ubvec=1;
-*
-
-    /* renumber the mesh */
-    //ChangeMesh2CNumbering
-    /* idx_t i;
-
-    for (i=0; i<=*ne; i++)
-        eptr[i]--;
-    for (i=0; i<eptr[*ne]; i++)
-        eind[i]--;
-    //*/
-
-    //DEBUG
-    //unsigned int ncon = 1;
-    const uint32_t ne = 15;
     const uint32_t ncon = 1;
 
-
-    /* get the dual graph */
+    //get the dual graph
     METIS_MeshToDual(&num_elements, &num_nodes, eptr.data(), eind.data(), &ncommon, &pnumflag, &xadj, &adjncy);
-
-    /*
-    //DEBUG
-    std::cout << "xadj" << std::endl;
-    for (size_t i = 0; i < num_elements; ++i)
-    {
-        std::cout << xadj[i] << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "adjncy" << std::endl;
-    for (size_t i = 0; i < (3*num_elements-20); ++i)
-    {
-        std::cout << adjncy[i] << ", ";
-    }
-    std::cout << std::endl;
-    //END OF DEBUG//*/
-
-    //idx_t *nn = NULL;
-    //const unsigned int xadj_arr[] = {0,2,5,8,11,13,16,20,24,28,31,33,36,39,42,44};
-    //const unsigned int adjncy_arr[] = {1,5,0,2,6,1,3,7,2,4,8,3,9,0,6,10,1,5,7,11,2,6,8,12,3,7,9,13,4,8,14,5,11,6,10,12,7,11,13,8,12,14,9,13};
-    //END OF DEBUG
 
     const unsigned int* xadj_arr = const_cast<unsigned int*>( (unsigned int*) xadj);
     const unsigned int* adjncy_arr = const_cast<unsigned int*>( (unsigned int*) adjncy);
-/*
-    //DEBUG
-    std::cout << "xadj_arr" << std::endl;
-    for (size_t i = 0; i < num_elements; ++i)
-    {
-        std::cout << xadj_arr[i] << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "adjncy_arr" << std::endl;
-    for (size_t i = 0; i < (3*num_elements-20); ++i)
-    {
-        std::cout << adjncy_arr[i] << ", ";
-    }
-    std::cout << std::endl;
-    //END OF DEBUG*/
 
     const unsigned int nregions = num_regions;
 
     epart.resize(num_elements);
 
     unsigned int where[num_elements];
-
+/*
     viennamesh::info(5) << "  Partitioning with MTMETIS_PartGraphKway" << std::endl;
 
     MTMETIS_PartGraphKway(//const_cast<unsigned int*>( (unsigned int*) &ne), 
@@ -659,9 +450,36 @@ bool MeshPartitions::MetisPartitioning()
                           //where);
                           const_cast<unsigned int*>( (unsigned int*) epart.data()) );
 
+    viennamesh::info(5) << "Created " << num_regions << " mesh partitions using mt-Metis" << std::endl;
+
     //*/
 
-    viennamesh::info(5) << "Created " << num_regions << " mesh partitions using Metis" << std::endl;
+    viennamesh::info(5) << "  Partitioning with MTMETIS_PartGraphRecursive" << std::endl;
+    
+    MTMETIS_PartGraphRecursive(//const_cast<unsigned int*>( (unsigned int*) &ne), 
+                            const_cast<unsigned int*>( (unsigned int*) &num_elements),
+                            //const_cast<unsigned int*>( (unsigned int*) &ncon), 
+                            &ncon,
+                            xadj_arr, 
+                            adjncy_arr, 
+                            //NULL,
+                            //NULL,
+                            NULL, 
+                            NULL, 
+                            NULL, 
+                            &nregions, 
+                            //NULL,
+                            NULL, 
+                            NULL, 
+                            options, 
+                            //NULL,
+                            //NULL,
+                            //NULL);
+                            &result, 
+                            //where);
+                            const_cast<unsigned int*>( (unsigned int*) epart.data()) );
+
+    viennamesh::info(5) << "Created " << num_regions << " mesh partitions using mt-Metis" << std::endl;
 /*
     //DEBUG
     for (size_t i = 0; i < epart.size(); ++i)
@@ -1059,7 +877,8 @@ bool MeshPartitions::CreatePragmaticDataStructures_ser()
                                                        std::vector<double>& ref_detail_log)//, std::vector<double>& build_tri_ds) */
 bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, std::vector<double>& threads_log, 
                                                        std::vector<double>& heal_log, std::vector<double>& metric_log,
-                                                       std::vector<double>& call_refine_log, std::vector<double>& refine_log)
+                                                       std::vector<double>& call_refine_log, std::vector<double>& refine_log,
+                                                       std::vector<double>& mesh_log)
 {    
     viennamesh::info(1) << "Starting mesh adaptation" << std::endl;
     /*
@@ -1077,12 +896,14 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
     //std::fill(build_tri_ds.begin(), build_tri_ds.end(), 0.0);*/
 
     threads_log.resize(nthreads);
+    mesh_log.resize(nthreads);
     heal_log.resize(nthreads);
     metric_log.resize(nthreads);
     call_refine_log.resize(nthreads);
     refine_log.resize(nthreads);
 
     std::fill(threads_log.begin(), threads_log.end(), 0.0);
+    std::fill(mesh_log.begin(), mesh_log.end(), 0.0);
     std::fill(heal_log.begin(), heal_log.end(), 0.0);
     std::fill(metric_log.begin(), metric_log.end(), 0.0);
     std::fill(call_refine_log.begin(), call_refine_log.end(), 0.0);
@@ -1401,10 +1222,12 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
             times[5] += enlist_time.count();
             //g2l_access[omp_get_thread_num()] += enlist_time.count();
 */
+            auto mesh_tic = omp_get_wtime();
+
             //create pragamtic data structure, the partition boundary and put it into the partition vector
 //            auto mesh_tic = std::chrono::system_clock::now();
             Mesh<double>* partition = nullptr;
-
+            
             if (dim == 2)
                 partition = new Mesh<double>(num_points_part, num_elements_part, &(ENList_part[0]), &(x_coords[0]), &(y_coords[0]));
 
@@ -1419,6 +1242,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
                 std::cout << it.first << " " << it.second << std::endl;
 */
             partition->create_boundary();
+            auto mesh_toc = omp_get_wtime();
 /*
             std::cout << " boundary created" << std::endl;
 
@@ -2136,6 +1960,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
             auto threads_toc = omp_get_wtime();
 
             threads_log[omp_get_thread_num()]+= threads_toc - threads_tic;
+            mesh_log[omp_get_thread_num()] += mesh_toc - mesh_tic;
             heal_log[omp_get_thread_num()]+= heal_toc - heal_tic;
             metric_log[omp_get_thread_num()]+= metric_toc - metric_tic;
             call_refine_log[omp_get_thread_num()] += call_to_refine_time;

@@ -94,6 +94,7 @@ namespace viennamesh
 			std::vector<double> metric_log;
 			std::vector<double> call_refine_log;
 			std::vector<double> refine_log;
+			std::vector<double> mesh_log;
 			
 			//std::vector<double> int_check_log;
 			//std::vector<double> build_tri_ds;
@@ -107,7 +108,7 @@ namespace viennamesh
 				wall_tic = std::chrono::system_clock::now();
 					/*InputMesh.CreatePragmaticDataStructures_par(threads_log, refine_times, l2g_build, l2g_access, g2l_build, g2l_access, 
 																algo, options, triangulate_log, int_check_log);//, build_tri_ds); //*/
-				    InputMesh.CreatePragmaticDataStructures_par(algo, threads_log, heal_log, metric_log, call_refine_log, refine_log);
+				    InputMesh.CreatePragmaticDataStructures_par(algo, threads_log, mesh_log, heal_log, metric_log, call_refine_log, refine_log);
 				std::chrono::duration<double> cpds_duration = std::chrono::system_clock::now() - wall_tic;	
 
 			//}
@@ -170,6 +171,9 @@ namespace viennamesh
 
 			for (size_t i =0; i < threads_log.size(); ++i)
 				csv << threads_log[i] << ", ";
+
+			for (size_t i =0; i < mesh_log.size(); ++i)
+				csv << mesh_log[i] << ", ";
 
 			for (size_t i =0; i < heal_log.size(); ++i)
 				csv << heal_log[i] << ", ";
