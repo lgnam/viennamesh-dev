@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 	color.set_input("num_partitions", region_count);
 	color.set_input("filename", filename.c_str());
 	color.set_input("num_threads", num_threads);
-	color.set_input("single_mesh_output", true);
+	color.set_input("single_mesh_output", false);
 	color.run(); //*/
 //*/
 /*
@@ -113,27 +113,29 @@ int main(int argc, char *argv[])
 	merger.set_default_source(triangle);
 	merger.run();
 */
-/*
+
 	//Write output mesh
 	viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
 	mesh_writer.set_default_source(color);
 	
 	//construct filename
 	
-	std::string folder = "test/100x100x100/";
+	std::string folder = "test/metis/500x500/dual/partgraphkway/";
 
 	std::string outfilename = filename.substr(filename.find_last_of("/")+1);
-/*	//outfilename.replace(outfilename.find(".vtu"), 12, "_initial.vtp");//*
+	/*//outfilename.replace(outfilename.find(".vtu"), 12, "_initial.vtp");//*
 	outfilename.replace(outfilename.find(".vtu"), 17, "_single_initial_");
 	outfilename += std::to_string(num_threads);
 	outfilename+= "threads_";
 	outfilename+= std::to_string(region_count);
-	outfilename+= "parts.vtu";
-	/*outfilename += std::to_string(region_count);
-	outfilename += "parts_";
+	outfilename+= "parts.vtu"; //*/
+
+	outfilename.replace(outfilename.find(".vtu"), 15, "_partgraphkway_");
 	outfilename += std::to_string(num_threads);
-	outfilename += "threads_own_metis.vtu";//*/
-/*
+	outfilename+= "threads_";
+	outfilename+= std::to_string(region_count);
+	outfilename+= "parts.vtu";
+
 	folder += outfilename;
 
 	mesh_writer.set_input("filename", folder.c_str());

@@ -371,7 +371,12 @@ bool MeshPartitions::MetisPartitioning()
 
     //Call Metis Partitioning Function (see metis manual for details on the parameters and on the use of the metis API)
     //*/
-    /*METIS_PartMeshDual(&num_elements,
+    /*idx_t options[METIS_NOPTIONS];
+
+    METIS_SetDefaultOptions(options);
+    options[METIS_OPTION_PTYPE]=METIS_PTYPE_RB;
+*/
+    METIS_PartMeshDual  (&num_elements,
                          &num_nodes,
                          eptr.data(),
                          eind.data(),
@@ -380,6 +385,7 @@ bool MeshPartitions::MetisPartitioning()
                          &ncommon,
                          &num_regions,
                          NULL,
+                         //options,
                          NULL,
                          &result,
                          epart.data(),
@@ -387,7 +393,7 @@ bool MeshPartitions::MetisPartitioning()
     viennamesh::info(5) << "Created " << num_regions << " mesh partitions using METIS_PartMeshNodal" << std::endl;
                          //*/
 
-    /*
+        /*
    METIS_PartMeshNodal (&num_elements,
                         &num_nodes,
                         eptr.data(),
@@ -403,7 +409,7 @@ bool MeshPartitions::MetisPartitioning()
 
     viennamesh::info(5) << "Created " << num_regions << " mesh partitions using METIS_PartMeshNodal" << std::endl;
                         //*/
-
+/*
     idx_t *xadj=NULL, *adjncy=NULL;//, *nptr=NULL, *nind=NULL;
     idx_t pnumflag=0;
     double * options = mtmetis_init_options();
@@ -453,7 +459,7 @@ bool MeshPartitions::MetisPartitioning()
     viennamesh::info(5) << "Created " << num_regions << " mesh partitions using mt-Metis" << std::endl;
 
     //*/
-
+/*
     viennamesh::info(5) << "  Partitioning with MTMETIS_PartGraphRecursive" << std::endl;
     
     MTMETIS_PartGraphRecursive(//const_cast<unsigned int*>( (unsigned int*) &ne), 
@@ -1808,7 +1814,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
                         /*refiner.refine(0.0005, nodes_partition_ids, l2g_vertices_tmp, g2l_vertices_tmp, l2g_elements_tmp, g2l_elements_tmp,
                                    &ref_detail_log[0], num_nodes, num_elements, part_id, outbox_data, outboxes, partition_colors,
                                    partition_adjcy[part_id]); //*/
-                        refiner.refine(0.005, nodes_partition_ids, l2g_vertices_tmp, g2l_vertices_tmp, part_id, outbox_data, 
+                        /*refiner.refine(0.005, nodes_partition_ids, l2g_vertices_tmp, g2l_vertices_tmp, part_id, outbox_data, 
                                        partition_colors, partition_adjcy[part_id]);//*/
                     }
 
