@@ -2,7 +2,6 @@
 
 namespace viennamesh
 {
-    //TODO: works only for 2d case!!!
     viennamesh_error convert(viennagrid::mesh const & input, pragmatic::pragmatic_mesh & output)
     {
         //get basic information about mesh
@@ -122,6 +121,8 @@ namespace viennamesh
                 return 0;
             }
         } //end of iterating all pragmatic elements
+
+        //delete input;
 
         return VIENNAMESH_SUCCESS;
     }
