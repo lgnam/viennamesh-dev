@@ -153,8 +153,15 @@ namespace viennamesh
             
             static double mean_curvature                (Point_3 point,mesh_t& mesh);
             static double gaus_curvature                (Point_3 point,mesh_t& mesh);
+            static double min_curvature                 (Point_3 point,mesh_t& mesh);
+            static double max_curvature                 (Point_3 point,mesh_t& mesh);
+            
+            static double max_angle                     (Point_3 point,mesh_t& mesh);
+            static double min_angle                     (Point_3 point,mesh_t& mesh);
+            static double mean_normalized_angle         (Point_3 point,mesh_t& mesh);       //compareable to mean curvature
+            static double multiplied_normalized_angle   (Point_3 point,mesh_t& mesh);       //compareable to gaussan curvature
 
-           
+
             //needed static funktions for the statistic
             static Monge_form get_monge_form(Point_3 point,mesh_t& mesh);
             static Vector_3 get_surface_normal(mesh_t::Vertex& vertex);
@@ -168,7 +175,9 @@ namespace viennamesh
             std::vector<viennagrid_quantity_field> get_quantity_fields(){return quantity_fields;}
 
             //test curvature igl
+#if __enable_libigl
             void curvature_igl(mesh_t& mesh);
+#endif //__enable_libigl
 
         private:
             void make_curvature();

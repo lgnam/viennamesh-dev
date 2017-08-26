@@ -70,6 +70,18 @@ void cgal_statistic::default_quantities()
     ));
 
     add_quantity(statistic_data_t(
+        "max curvature",
+        quantity_dimention_t::Vertex,
+        (quantity_Funktions_t)  &max_curvature
+    ));
+
+    add_quantity(statistic_data_t(
+        "min curvature",
+        quantity_dimention_t::Vertex,
+        (quantity_Funktions_t)  &min_curvature
+    ));
+
+    add_quantity(statistic_data_t(
         "mean curvature compare to closest points",
         quantity_dimention_t::Vertex,
         (quantity_Funktions_t)  &mean_curvature,
@@ -84,6 +96,37 @@ void cgal_statistic::default_quantities()
         quantity_compare_t::closest_Point_value,
         (compare_Funktions_t)   &quality_diffrence
     ));
+
+    add_quantity(statistic_data_t(
+        "max angle",
+        quantity_dimention_t::Vertex,
+        (quantity_Funktions_t)  &max_angle,
+        quantity_compare_t::none
+    ));
+
+
+    add_quantity(statistic_data_t(
+        "min angle",
+        quantity_dimention_t::Vertex,
+        (quantity_Funktions_t)  &min_angle,
+        quantity_compare_t::none
+    ));
+
+    add_quantity(statistic_data_t(
+        "mean angle",
+        quantity_dimention_t::Vertex,
+        (quantity_Funktions_t)  &mean_normalized_angle,
+        quantity_compare_t::none
+    ));
+
+
+    add_quantity(statistic_data_t(
+        "gaus angle(gedanklich vergleichbar mit gaus curvature)",
+        quantity_dimention_t::Vertex,
+        (quantity_Funktions_t)  &multiplied_normalized_angle,
+        quantity_compare_t::none
+    ));
+    
 }
 
 

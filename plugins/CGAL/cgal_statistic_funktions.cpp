@@ -2,6 +2,9 @@
 #include <CGAL/squared_distance_3.h> //for 3D functions
 #include <CGAL/squared_distance_2.h>
 
+//#include <cmath>
+#include <math.h>
+
 
 // using namespace cgal_statistic
 using namespace viennamesh;
@@ -132,6 +135,18 @@ double cgal_statistic::gaus_curvature(Point_3 point,mesh_t& mesh)
     return monge_form.principal_curvatures(0)*monge_form.principal_curvatures(1);
 }
 
+double cgal_statistic::max_curvature(Point_3 point,mesh_t& mesh)
+{
+    Monge_form monge_form=get_monge_form (point,mesh);
+    return monge_form.principal_curvatures(0);
+}
+
+double cgal_statistic::min_curvature(Point_3 point,mesh_t& mesh)
+{
+    Monge_form monge_form=get_monge_form (point,mesh);
+    return monge_form.principal_curvatures(1);
+}
+
 
 //gathers the closest points by collecting the neighbors and there neighbors and so on if nessesary
 std::vector<cgal_statistic::Point_3> cgal_statistic::closest_points(long amount,Point_3 point,mesh_t& mesh)
@@ -223,10 +238,109 @@ cgal_statistic::Vector_3 cgal_statistic::get_surface_normal(mesh_t::Vertex& vert
     return out/norm(out);
 }       
 
+//retuns the max angle at that vertex
+double cgal_statistic::max_angle(Point_3 point,mesh_t& mesh)
+{
+    mesh_t::Vertex& vertex=convert_Point_to_Vertex(point,mesh);
+    Vector_3 normal_vector=get_surface_normal(vertex);
+    double max_angle=-1;
+
+    //vertex.vertex_begin() ciclyes clockwise around the halfedges
+
+    mesh_t::Vertex::Halfedge_around_vertex_circulator at=vertex.vertex_begin(),end=at;
+    do
+    {
+        Vector_3 vect=at->opposite()->vertex()->point()-point;
+        //double angle=acos(vect*normal_vector/(norm(vect)*norm(normal_vector)));
+
+        double tmp=vect*normal_vector/(norm(vect)*norm(normal_vector));
+        if(tmp>1)
+        {
+            std::cerr << "something went wrong cos(a)>1\n it was: " << tmp << "\n";
+            tmp=1;
+        }
+        if(tmp<-1)
+        {
+            std::cerr << "something went wrong cos(a)<-1\n it was: " << tmp << "\n";
+            tmp=-1;
+        }
+        double angle=acos(tmp);
+
+        if(!std::isnan(angle) && (max_angle < angle || max_angle==-1))
+            max_angle=angle;
+
+        ++at;
+       
+    }while(at!=end);
+
+    return max_angle;
+
+}
+
+
+//retuns the min angle at that vertex
+double cgal_statistic::min_angle(Point_3 point,mesh_t& mesh)
+{
+    mesh_t::Vertex& vertex=convert_Point_to_Vertex(point,mesh);
+    Vector_3 normal_vector=get_surface_normal(vertex);
+    double min_angle=-1;
+
+    //vertex.vertex_begin() ciclyes clockwise around the halfedges
+
+    mesh_t::Vertex::Halfedge_around_vertex_circulator at=vertex.vertex_begin(),end=at;
+    do
+    {
+        Vector_3 vect=at->opposite()->vertex()->point()-point;
+       // double angle=acos(vect*normal_vector/(norm(vect)*norm(normal_vector)));
+        double tmp=vect*normal_vector/(norm(vect)*norm(normal_vector));
+        if(tmp>1)
+        {
+            std::cerr << "something went wrong cos(a)>1\n it was: " << tmp << "\n";
+            tmp=1;
+        }
+        if(tmp<-1)
+        {
+            std::cerr << "something went wrong cos(a)<-1\n it was: " << tmp << "\n";
+            tmp=-1;
+        }
+        double angle=acos(tmp);
+
+
+        if(!std::isnan(angle) && (min_angle > angle || min_angle==-1))
+            min_angle=angle;
+
+        ++at;
+       
+    }while(at!=end);
+
+    return min_angle;
+}
+
+double cgal_statistic::mean_normalized_angle(Point_3 point,mesh_t& mesh)       //compareable to mean curvature
+{
+    double max_angle_d=max_angle(point,mesh)-1.57; //-pi/2
+    double min_angle_d=min_angle(point,mesh)-1.57; //-pi/2
+
+    return (max_angle_d+min_angle_d)/2.0;
+
+}
+
+double cgal_statistic::multiplied_normalized_angle(Point_3 point,mesh_t& mesh)       //compareable to gaussan curvature
+{
+    double max_angle_d=max_angle(point,mesh)-1.57; //-pi/2
+    double min_angle_d=min_angle(point,mesh)-1.57; //-pi/2
+
+    return max_angle_d*min_angle_d;
+}
+
+#if __enable_libigl
+
+#include <igl/gaussian_curvature.h>
+#include <igl/principal_curvature.h>
+//add in cmake 
+//
 
 //test igl curvature
-//#include "../statistics/mesh_comparison.hpp"
-//#include "../statistics/libigl_convert.hpp"
 
 void convert_cgal_to_igl(cgal_statistic::mesh_t& mesh, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& Vertices, Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic>& Facets)
 {
@@ -267,10 +381,7 @@ void convert_cgal_to_igl(cgal_statistic::mesh_t& mesh, Eigen::Matrix<double, Eig
     }
 }
 
-#if __enable_libigl
 
-#include <igl/gaussian_curvature.h>
-#include <igl/principal_curvature.h>
 
 
 void cgal_statistic::curvature_igl(mesh_t& mesh)
