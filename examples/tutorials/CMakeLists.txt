@@ -54,5 +54,8 @@ add_executable(pragmatic_refine_multi_region_mesh pragmatic_refine_multi_region_
 target_link_libraries(pragmatic_refine_multi_region_mesh viennameshpp)
 target_link_libraries(pragmatic_refine_multi_region_mesh ${VTK_LIBRARIES})
 
-add_executable(cgal_statistics cgal_statistics)
+add_executable(cgal_statistics cgal_statistics.cpp)
 target_link_libraries(cgal_statistics viennameshpp)
+
+add_executable(cgal_statistic_sweep cgal_statistic_sweep.cpp)
+target_link_libraries(cgal_statistic_sweep viennameshpp)

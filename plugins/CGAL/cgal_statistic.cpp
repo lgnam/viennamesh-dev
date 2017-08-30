@@ -1,9 +1,70 @@
 #include "cgal_statistic.hpp"
 
+#include "cgal_mesh.hpp"
+
 #include <cmath>
 
 using namespace viennamesh;
 
+
+//plugin run()
+bool cgal_statistic::run(algorithm_handle&)
+{
+
+    //Get mesh data (REQUIRED)
+    std::cout << "original mesh\n";
+    data_handle<cgal::polyhedron_surface_mesh> original_mesh    = get_required_input<cgal::polyhedron_surface_mesh>("original mesh");
+    std::cout << "coarse mesh\n";
+    data_handle<cgal::polyhedron_surface_mesh> coarse_mesh      = get_required_input<cgal::polyhedron_surface_mesh>("coarse mesh"); 
+
+    //optional stuff
+    data_handle<bool>   use_default_quantities=get_input<bool>("default quantities");
+    //data_handle<std::vector<statistic_data_t>> additional_quantities=get_input<std::vector<statistic_data_t>>("quantities");
+    old_mesh=original_mesh();
+    new_mesh=coarse_mesh();
+
+
+    if(use_default_quantities.valid())
+    {
+        if(use_default_quantities())
+        {
+            default_quantities();
+        }
+    }
+
+/*
+    if(additional_quantities.valid())
+    {
+        std::vector<statistic_data_t> tmp=additional_quantities()
+        for(std::vector<statistic_data_t>::iterator at=tmp.begin(),end=tmp.end();at!=end;++at)
+        {
+            add_quantity(*at);
+        }
+    }
+    */
+
+
+    //run statistic
+    operator() ();
+    operator() ();
+
+    //set output
+    set_output<cgal::polyhedron_surface_mesh>("mesh", new_mesh);
+    make_quantity_fields();
+
+    std::vector<viennagrid_quantity_field> quantity_fields=get_quantity_fields();
+    std::cout << "quantity fields size: " << quantity_fields.size() << "\n"; 
+    if(quantity_fields.size()!=0)
+    {
+        data_handle<viennagrid_quantity_field> quantity_field_handle=viennamesh::plugin_algorithm::make_data(to_cpp(quantity_fields[0]));            
+        if(quantity_fields.size()>1)
+            for(std::vector<viennagrid_quantity_field>::iterator at=++ quantity_fields.begin(),end=quantity_fields.end();at!=end;++at)
+                quantity_field_handle.push_back(to_cpp(*at));             
+        set_output("quantities",quantity_field_handle);
+    }
+    else 
+        std::cout << "no quantities\n";
+}
 
 //default quantities
 void cgal_statistic::default_quantities()
@@ -119,7 +180,6 @@ void cgal_statistic::default_quantities()
         quantity_compare_t::none
     ));
 
-
     add_quantity(statistic_data_t(
         "gaus angle(gedanklich vergleichbar mit gaus curvature)",
         quantity_dimention_t::Vertex,
@@ -159,7 +219,6 @@ void cgal_statistic::add_quantity(statistic_data_t data)
 //this generates the needed structurs and then runs statisttic()
 void cgal_statistic::operator()()
 {
-     static long state=0;
     if(state==0)
     {
         old_tree.insert(faces(old_mesh).begin(),faces(old_mesh).end(),old_mesh);

@@ -129,6 +129,10 @@ namespace viennamesh
             //constructor
             cgal_statistic(mesh_t starting_mesh):old_mesh(starting_mesh){}
             cgal_statistic(){}
+
+            //plugin stuff
+            static std::string name(){return "cgal_statistic";}
+            bool run(viennamesh::algorithm_handle &);
             
             void operator() ();
             void make_quantity_fields();
@@ -182,6 +186,8 @@ namespace viennamesh
         private:
             void make_curvature();
             void statistic();
+
+            long state=0;
 
             double                  old_area=0;
             double                  new_area=0;

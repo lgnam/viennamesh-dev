@@ -235,6 +235,9 @@ cgal_statistic::Vector_3 cgal_statistic::get_surface_normal(mesh_t::Vertex& vert
         ++at;
     }while(at!=end);
 
+    if(norm(out)==0)
+        return out;     //if it is not defined just return (0,0,0)
+
     return out/norm(out);
 }       
 
@@ -243,6 +246,8 @@ double cgal_statistic::max_angle(Point_3 point,mesh_t& mesh)
 {
     mesh_t::Vertex& vertex=convert_Point_to_Vertex(point,mesh);
     Vector_3 normal_vector=get_surface_normal(vertex);
+    if(norm(normal_vector)==0)
+        return 1.57; //-pi/2                       //if surface normal isn't "defined"
     double max_angle=-1;
 
     //vertex.vertex_begin() ciclyes clockwise around the halfedges
@@ -251,21 +256,7 @@ double cgal_statistic::max_angle(Point_3 point,mesh_t& mesh)
     do
     {
         Vector_3 vect=at->opposite()->vertex()->point()-point;
-        //double angle=acos(vect*normal_vector/(norm(vect)*norm(normal_vector)));
-
-        double tmp=vect*normal_vector/(norm(vect)*norm(normal_vector));
-        if(tmp>1)
-        {
-            std::cerr << "something went wrong cos(a)>1\n it was: " << tmp << "\n";
-            tmp=1;
-        }
-        if(tmp<-1)
-        {
-            std::cerr << "something went wrong cos(a)<-1\n it was: " << tmp << "\n";
-            tmp=-1;
-        }
-        double angle=acos(tmp);
-
+        double angle=acos(vect*normal_vector/(norm(vect)*norm(normal_vector)));
         if(!std::isnan(angle) && (max_angle < angle || max_angle==-1))
             max_angle=angle;
 
@@ -283,6 +274,8 @@ double cgal_statistic::min_angle(Point_3 point,mesh_t& mesh)
 {
     mesh_t::Vertex& vertex=convert_Point_to_Vertex(point,mesh);
     Vector_3 normal_vector=get_surface_normal(vertex);
+    if(norm(normal_vector)==0)
+        return 1.57; //-pi/2                       //if surface normal isn't "defined"
     double min_angle=-1;
 
     //vertex.vertex_begin() ciclyes clockwise around the halfedges
@@ -291,20 +284,7 @@ double cgal_statistic::min_angle(Point_3 point,mesh_t& mesh)
     do
     {
         Vector_3 vect=at->opposite()->vertex()->point()-point;
-       // double angle=acos(vect*normal_vector/(norm(vect)*norm(normal_vector)));
-        double tmp=vect*normal_vector/(norm(vect)*norm(normal_vector));
-        if(tmp>1)
-        {
-            std::cerr << "something went wrong cos(a)>1\n it was: " << tmp << "\n";
-            tmp=1;
-        }
-        if(tmp<-1)
-        {
-            std::cerr << "something went wrong cos(a)<-1\n it was: " << tmp << "\n";
-            tmp=-1;
-        }
-        double angle=acos(tmp);
-
+        double angle=acos(vect*normal_vector/(norm(vect)*norm(normal_vector)));
 
         if(!std::isnan(angle) && (min_angle > angle || min_angle==-1))
             min_angle=angle;
