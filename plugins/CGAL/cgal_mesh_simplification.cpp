@@ -39,6 +39,9 @@
 #include <CGAL/Kernel/global_functions.h>
 #include <CGAL/Unique_hash_map.h>
 
+//test statistic
+// #include "cgal_statistic.hpp"
+#include "cgal_statistic.hpp"
 
 
 namespace SMS = CGAL::Surface_mesh_simplification ;
@@ -201,8 +204,12 @@ namespace viennamesh
                         cmap.set_constrained(*b,true);
                     }
                 }
+                else
+                {
+                    cmap.set_constrained(*b,true);
+                }
             }
-
+            std::cout << "Finished itterating now it will start to collapse stuff\n";
             return SMS::edge_collapse
                    (surface_mesh
                     ,stop
@@ -256,8 +263,10 @@ namespace viennamesh
         {
 
             //Get mesh data (REQUIRED)
+            
+            
             data_handle<cgal::polyhedron_surface_mesh> input_mesh = get_required_input<cgal::polyhedron_surface_mesh>("mesh");
-
+ 
             //Get stop predicate (REQUIRED)
             data_handle<viennamesh_string> stop_predicate = get_required_input<viennamesh_string>("stop_predicate");
 
@@ -275,11 +284,19 @@ namespace viennamesh
             data_handle<viennagrid_numeric> lindstrom_shape_weight = get_input<viennagrid_numeric>("lindstrom_shape_weight");
 
             //Create output mesh handle
+            
             data_handle<cgal::polyhedron_surface_mesh> output_mesh = make_data<cgal::polyhedron_surface_mesh>();
 
             //Declare internal reference to output mesh
             cgal::polyhedron_surface_mesh & my_mesh = const_cast<cgal::polyhedron_surface_mesh&> (output_mesh());
             my_mesh = input_mesh();
+
+                       
+            //cgal statistic stuff test
+            // cgal_statistic testclass(my_mesh);
+            // testclass.default_quantities();
+            // testclass();
+
 
             /* Feature preservation by angle (given in rad) - Warning: Feature preservation is experimental!
              * Extremely low performance (coarsening times of even hours) can be possible!
@@ -779,6 +796,40 @@ namespace viennamesh
             info(5) << "Done...\n" << input_mesh().size_of_halfedges()/2 << " original edges.\n" << removed_edges << " edges removed.\n" << my_mesh.size_of_halfedges()/2 << " final edges.\n" ;
             set_output("mesh", my_mesh);
 
+            // std::cout << "test,stuff\n";
+            // std::cout << "right after test stuff\n"; 
+            // //statistic shit
+            // testclass.get_new_mesh()=my_mesh;
+            // std::cout << "after the new mesh was set\n"; 
+            // testclass();
+            // std::cout << "befor make quantity fields\n"; 
+            // testclass.make_quantity_fields();
+            // std::cout << "after make quantity fields\n"; 
+
+
+            // // data_handle<viennagrid_quantity_field> quantity_field_handle=viennamesh::plugin_algorithm::make_data(to_cpp(testclass.get_new_quality_field()));            
+            // // quantity_field_handle.push_back(to_cpp(testclass.get_quality_diffrence_field()));
+            // // quantity_field_handle.push_back(to_cpp(testclass.get_quality_relative_field()));
+            // // quantity_field_handle.push_back(to_cpp(testclass.get_quality_diffrence_relative_field()));
+            // // quantity_field_handle.push_back(to_cpp(testclass.get_squared_distance_field()));
+            // // quantity_field_handle.push_back(to_cpp(testclass.get_mean_curvature_field()));
+
+            // // set_output("quantities",quantity_field_handle);
+            
+            // std::vector<viennagrid_quantity_field> quantity_fields=testclass.get_quantity_fields();
+            // std::cout << "quantity fields size: " << quantity_fields.size() << "\n"; 
+            // if(quantity_fields.size()!=0)
+            // {
+            //     data_handle<viennagrid_quantity_field> quantity_field_handle=viennamesh::plugin_algorithm::make_data(to_cpp(quantity_fields[0]));            
+            //     if(quantity_fields.size()>1)
+            //         for(std::vector<viennagrid_quantity_field>::iterator at=++ quantity_fields.begin(),end=quantity_fields.end();at!=end;++at)
+            //             quantity_field_handle.push_back(to_cpp(*at));             
+            //     set_output("quantities",quantity_field_handle);
+            // }
+            // else 
+            //     std::cout << "no quantities\n";
+          
+            // std::cout << testclass.get_old_mesh().size_of_facets() << " : " << testclass.get_new_mesh().size_of_facets()<<"\n";
             return true;
         }
     }

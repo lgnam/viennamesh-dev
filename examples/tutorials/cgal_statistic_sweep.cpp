@@ -27,22 +27,22 @@ viennamesh::algorithm_handle        mesh_writer;
 viennamesh::context_handle          context;
 
 double ratio                        = 0;
-double ratio_step                   = 0.02;
+double ratio_step                   = 0.03;
 double ratio_start                  = 0.01;
 double ratio_stop                   = 0.99;
 
 double lindstrom_volume_weight          = 0;
-double lindstrom_volume_weight_step     = 0.2;
+double lindstrom_volume_weight_step     = 0.3;
 double lindstrom_volume_weight_start    = 0;
 double lindstrom_volume_weight_stop     = 1;
 
 double lindstrom_boundary_weight        = 0; 
-double lindstrom_boundary_weight_step   = 0.2; 
+double lindstrom_boundary_weight_step   = 0.3; 
 double lindstrom_boundary_weight_start  = 0; 
 double lindstrom_boundary_weight_stop   = 1; 
 
 double lindstrom_shape_weight           = 0; 
-double lindstrom_shape_weight_step      = 0.2; 
+double lindstrom_shape_weight_step      = 0.3; 
 double lindstrom_shape_weight_start     = 0; 
 double lindstrom_shape_weight_stop      = 1; 
 
