@@ -1,9 +1,13 @@
+
+#include "viennagrid/viennagrid.hpp"
 #include "pragmatic_mesh.hpp"
 
 namespace viennamesh
 {
-    viennamesh_error convert(viennagrid::mesh const & input, pragmatic::pragmatic_mesh & output)
+    viennamesh_error convert(viennagrid::mesh const & input, pragmatic_wrapper::mesh & output)
     {
+        std::cout << std::endl << "viennagrid to pragmatic" << std::endl;
+/*
         //get basic information about mesh
         size_t cell_dimension = viennagrid::cell_dimension(input);
         size_t geometric_dimension = viennagrid::geometric_dimension(input);
@@ -14,7 +18,6 @@ namespace viennamesh
         std::vector<index_t> ENList;
         std::vector<double> x,y,z;
 
-        //Initialize x-, y-, and, z-coordinates
         //
         //create pointer to iterate over viennagrid_array
         viennagrid_numeric* ptr_coords = nullptr;
@@ -54,7 +57,7 @@ namespace viennamesh
         viennagrid_element_id triangle_id;
 
         int counter = 0;
-		  			
+                        
         //outer for loop iterates over all elements with dimension = topological_dimension (2 for triangles, 3 for tetrahedrons)
         //inner for loop iterates over all elements with dimension = boundary_topological_dimension (0 for vertices)
         //this info is needed to build the NEList which is used to build the pragmatic data structure
@@ -71,25 +74,30 @@ namespace viennamesh
                 }
                     
                 ++counter;
-        }
-
+        }*/
+/*
         if (geometric_dimension == 2)	
         {
-            output = new Mesh<double> (NNodes, NElements, &(ENList[0]), &(x[0]), &(y[0]));
-            output->create_boundary();
+            pragmatic::pragmatic_mesh mesh = new Mesh<double> (NNodes, NElements, &(ENList[0]), &(x[0]), &(y[0]));
+            mesh->create_boundary(); 
+            output = mesh;
         }
-    
+    /*
         else
         {		
             output = new Mesh<double> (NNodes, NElements, &(ENList[0]), &(x[0]), &(y[0]), &(z[0]));
             output->create_boundary();
         }
-        
+*/
+        output.CreateMesh(input);
+
         return VIENNAMESH_SUCCESS;
     }
 
-    viennamesh_error convert(pragmatic::pragmatic_mesh const & input, viennagrid::mesh & output)
+    viennamesh_error convert(pragmatic_wrapper::mesh const & input, viennagrid::mesh & output)
     {
+        std::cout << std::endl << "pragmatic to viennagrid" << std::endl;
+/*
         //ViennaGrid typedefs
         typedef viennagrid::mesh                                                        MeshType;
 
@@ -122,21 +130,22 @@ namespace viennamesh
             }
         } //end of iterating all pragmatic elements
 
-        //delete input;
+        //delete input;*/
 
         return VIENNAMESH_SUCCESS;
     }
 
     template<>
-    viennamesh_error internal_convert<viennagrid_mesh, pragmatic::pragmatic_mesh>(viennagrid_mesh const & input, pragmatic::pragmatic_mesh & output)
+    viennamesh_error internal_convert<viennagrid_mesh, pragmatic_wrapper::mesh>(viennagrid_mesh const & input, pragmatic_wrapper::mesh & output)
     {
-        return convert( input, output );
+        std::cerr << std::endl << "internal convert viennagrid to pragmatic" << std::endl;
+        return convert(viennagrid::mesh(input), output);
     }
 
     template<>
-    viennamesh_error internal_convert<pragmatic::pragmatic_mesh, viennagrid_mesh>(pragmatic::pragmatic_mesh const & input, viennagrid_mesh & output)
+    viennamesh_error internal_convert<pragmatic_wrapper::mesh, viennagrid_mesh>(pragmatic_wrapper::mesh const & input, viennagrid_mesh & output)
     {
         viennagrid::mesh output_pp(output);
-        return convert (input, output_pp);
+        return convert(input, output_pp);
     }
 }

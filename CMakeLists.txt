@@ -42,7 +42,6 @@ message(STATUS "ViennaMesh plugin directories: ${VIENNAMESH_PLUGIN_DIRECTORIES}"
 add_definitions( "-DVIENNAMESH_DEFAULT_PLUGIN_DIRECTORY=\"${VIENNAMESH_PLUGIN_DIRECTORIES}\"" )
 
 include_directories(include)
-#add_definitions( -DHAVE_OPENMP -DTRILIBRARY -DEXTERNAL_TEST -DANSI_DECLARATORS -DNO_TIMER -DVIENNAMESH_HAS_THREADS)
 
 add_subdirectory(external)
 include_directories(${VIENNAMESH_EXTERNAL_INCLUDE_DIRECTORIES})

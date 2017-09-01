@@ -1,10 +1,8 @@
 //ViennaMesh includes
 #include "viennameshpp/core.hpp"
-#include "../../plugins/color_based_refinement/outbox.hpp"
-
-int Outbox::no_outboxes = 0;
 
 int main(int argc, char *argv[])
+//int main()
 {
     // Check and read console input 
 	int region_count = 0;
@@ -61,52 +59,28 @@ int main(int argc, char *argv[])
 	// Create algorithm handle for reading the mesh from a file and run it
 	viennamesh::algorithm_handle mesh_reader = context.make_algorithm("mesh_reader");
 	mesh_reader.set_input("filename", filename.c_str());
+	//mesh_reader.set_input("filename", "examples/data/half-trigate_0.vtu");
 	mesh_reader.run();
 
-	//Investigation of memory-leak
+	// Create algorithm handle for the color-based-refinement
 	viennamesh::algorithm_handle color = context.make_algorithm("color_refinement");
-	color.set_default_source(mesh_reader);
-	color.run();
-/*
-  	// Create algorithm handle for the color-based-refinement
-	viennamesh::algorithm_handle color = context.make_algorithm("color_refinement");    
 	color.set_default_source(mesh_reader);
 	color.set_input("algorithm", algorithm);
 	color.set_input("options", options);
 	color.set_input("num_partitions", region_count);
 	color.set_input("filename", filename.c_str());
 	color.set_input("num_threads", num_threads);
-	color.set_input("single_mesh_output", false);
-	color.run(); //*/
-//*/
-
-
+	color.set_input("single_mesh_output", true);
+	color.run();
+/*
 	//Write output mesh
 	viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
 	mesh_writer.set_default_source(color);
 	
 	//construct filename
-	
-	std::string folder = "test/metis/500x500/dual/partgraphkway/";
 
-	std::string outfilename = filename.substr(filename.find_last_of("/")+1);
-	/*//outfilename.replace(outfilename.find(".vtu"), 12, "_initial.vtp");
-	outfilename.replace(outfilename.find(".vtu"), 17, "_single_initial_");
-	outfilename += std::to_string(num_threads);
-	outfilename+= "threads_";
-	outfilename+= std::to_string(region_count);
-	outfilename+= "parts.vtu"; //*/
-
-	outfilename.replace(outfilename.find(".vtu"), 15, "_partgraphkway_");
-	outfilename += std::to_string(num_threads);
-	outfilename+= "threads_";
-	outfilename+= std::to_string(region_count);
-	outfilename+= "parts.vtu";
-
-	folder += outfilename;
-
-	mesh_writer.set_input("filename", folder.c_str());
-	//mesh_writer.run();
+	mesh_writer.set_input("filename", "test.vtu");
+	mesh_writer.run();
 //*/
-    return 0;
+    return -1;
 }

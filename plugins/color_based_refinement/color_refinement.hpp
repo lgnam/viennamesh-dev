@@ -2,7 +2,6 @@
 #define VIENNAMESH_ALGORITHM_COLOR_REFINEMENT_HPP
 
 #include "viennameshpp/plugin.hpp"
-#include "outbox.hpp"
 
 namespace viennamesh
 {
@@ -13,7 +12,6 @@ namespace viennamesh
 
 				static std::string name();
 				bool run (viennamesh::algorithm_handle &);
-				bool run2 (viennamesh::algorithm_handle &);
   	};
 }
 
