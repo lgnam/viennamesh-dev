@@ -186,6 +186,37 @@ void cgal_statistic::default_quantities()
         (quantity_Funktions_t)  &multiplied_normalized_angle,
         quantity_compare_t::none
     ));
+    add_quantity(statistic_data_t(
+        "mean angle compared to closest Point",
+        quantity_dimention_t::Vertex,
+        (quantity_Funktions_t)  &mean_normalized_angle,
+        quantity_compare_t::closest_Point_value,
+        (compare_Funktions_t)   &quality_diffrence
+    ));
+
+    add_quantity(statistic_data_t(
+        "gaus angle(gedanklich vergleichbar mit gaus curvature) compared to the closest Point",
+        quantity_dimention_t::Vertex,
+        (quantity_Funktions_t)  &multiplied_normalized_angle,
+        quantity_compare_t::closest_Point_value,
+        (compare_Funktions_t)   &quality_diffrence
+    ));
+
+    add_quantity(statistic_data_t(
+        "mean angle compared to the mean of the closest points",
+        quantity_dimention_t::Vertex,
+        (quantity_Funktions_t)  &mean_normalized_angle,
+        quantity_compare_t::closest_Points_value,
+        (compare_Funktions_t)   &diffrence_of_mean
+    ));
+
+    add_quantity(statistic_data_t(
+        "gaus angle(gedanklich vergleichbar mit gaus curvature) compared to the mean of the closest points",
+        quantity_dimention_t::Vertex,
+        (quantity_Funktions_t)  &multiplied_normalized_angle,
+        quantity_compare_t::closest_Points_value,
+        (compare_Funktions_t)   &diffrence_of_mean
+    ));
     
 }
 
