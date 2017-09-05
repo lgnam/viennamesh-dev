@@ -1,7 +1,9 @@
 #ifndef OUTBOX_HPP
 #define OUTBOX_HPP
 
-class Outbox
+#include "counter.hpp"
+
+class Outbox : private Counter<Outbox>
 {
     public:
         //Constructor
@@ -13,7 +15,7 @@ class Outbox
             //std::cout << "  " << no_outboxes << std::endl;
             std::cout << "========================================================================================" << std::endl;*/
 
-            ++no_outboxes;
+            //++no_outboxes;
         }
 
         Outbox(bool no_new_instance)
@@ -59,14 +61,10 @@ class Outbox
             return num_verts;
         }
 
-        static int number_outboxes()
-        {
-            return no_outboxes;
-        }
+        using Counter<Outbox>::howMany;
 
     private:
         std::vector<int> data;
-        static int no_outboxes;
 };
 
 #endif //OUTBOX_HPP

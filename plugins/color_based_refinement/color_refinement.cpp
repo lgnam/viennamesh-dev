@@ -1,9 +1,6 @@
 #include "color_refinement.hpp"
-
 #include "pragmatic_mesh.hpp"
 #include "mesh_partitions.hpp"
-
-//#include <omp.h>
 
 namespace viennamesh
 {
@@ -12,12 +9,14 @@ namespace viennamesh
 
 		bool color_refinement::run(viennamesh::algorithm_handle &)
 		{	
-			data_handle<pragmatic::pragmatic_mesh> input_mesh = get_required_input<pragmatic::pragmatic_mesh>("mesh");
+			data_handle<pragmatic_wrapper::mesh> input_mesh = get_required_input<pragmatic_wrapper::mesh>("mesh");
 			data_handle<int> num_partitions = get_required_input<int>("num_partitions");
 			data_handle<int> num_threads = get_input<int>("num_threads");
 			data_handle<bool> single_mesh_output = get_input<bool>("single_mesh_output");
 			string_handle input_file = get_input<string_handle>("filename");
 			string_handle algorithm = get_input<string_handle>("algorithm");
+
+			Mesh<double> * in_mesh = input_mesh().mesh;
 		
 			info(1) << name() << std::endl;
 			
@@ -25,8 +24,8 @@ namespace viennamesh
 			size_t find_vtu = input_file().find_last_of(".");
 			info(1) << input_file().substr(found+1) << std::endl;
 
-			info(1) << "  Number of vertices: " << input_mesh()->get_number_nodes() << std::endl;
-      		info(1) << "  Dimension: " << input_mesh()->get_number_dimensions() << std::endl;
+			info(1) << "  Number of vertices: " << input_mesh().mesh->get_number_nodes() << std::endl;
+      		info(1) << "  Dimension: " << input_mesh().mesh->get_number_dimensions() << std::endl;
 			info(1) << "  Threads: " << num_threads() << std::endl;
 			
 			std::string algo;
@@ -54,11 +53,11 @@ namespace viennamesh
 				return false;
 			}				
 
-			MeshPartitions InputMesh(input_mesh(), num_partitions(), input_file().substr(found+1), num_threads());
-		
+			MeshPartitions InputMesh(input_mesh().mesh, num_partitions(), input_file().substr(found+1), num_threads()); 
+
 			//SERIAL PART
 			auto overall_tic = std::chrono::system_clock::now();
-
+			
 			auto wall_tic = std::chrono::system_clock::now();
 				InputMesh.MetisPartitioning();
 			std::chrono::duration<double> partitioning_duration = std::chrono::system_clock::now() - wall_tic;
@@ -73,21 +72,8 @@ namespace viennamesh
 				InputMesh.ColorPartitions();
 			std::chrono::duration<double> coloring_duration = std::chrono::system_clock::now() - wall_tic;
 			viennamesh::info(1) << "  Coloring time " << coloring_duration.count() << std::endl;
-/*
-			std::chrono::duration<double> pragmatic_duration;
-			double refinement_duration;
-			double pragmatic_adjacency;
-			double map_duration;
-			double metric_duration;
-			//if (num_threads() == 1)
-			{
-				wall_tic = std::chrono::system_clock::now();
-					InputMesh.CreatePragmaticDataStructures_ser(); //Think about where I create the actual data structures!!!
-				pragmatic_duration = std::chrono::system_clock::now() - wall_tic;
-			}
-/*
-			else
-			{*/
+
+			//PARALLEL PART
 			std::chrono::duration<double> pragmatic_duration;
 			std::vector<double> threads_log;
 			std::vector<double> heal_log;
@@ -95,32 +81,17 @@ namespace viennamesh
 			std::vector<double> call_refine_log;
 			std::vector<double> refine_log;
 			std::vector<double> mesh_log;
+
 			
-			//std::vector<double> int_check_log;
-			//std::vector<double> build_tri_ds;
-			/*
-			std::vector<double> times(13);
-			std::fill(times.begin(), times.end(), 0.0);
-			*/
-			//std::vector<double> l2g_build, l2g_access, g2l_build, g2l_access;
-
-				//PARALLEL PART
-				wall_tic = std::chrono::system_clock::now();
-					/*InputMesh.CreatePragmaticDataStructures_par(threads_log, refine_times, l2g_build, l2g_access, g2l_build, g2l_access, 
-																algo, options, triangulate_log, int_check_log);//, build_tri_ds); //*/
-				    InputMesh.CreatePragmaticDataStructures_par(algo, threads_log, mesh_log, heal_log, metric_log, call_refine_log, refine_log);
-				std::chrono::duration<double> cpds_duration = std::chrono::system_clock::now() - wall_tic;	
-
-			//}
-
-/*
 			wall_tic = std::chrono::system_clock::now();
-				//InputMeshHealInterior();
-				MeshPartitionsRefinement RefineMesh(InputMesh, 0);
-			std::chrono::duration<double> refinement_duration = std::chrono::system_clock::now() - wall_tic;
-*/
-			std::chrono::duration<double> overall_duration = std::chrono::system_clock::now() - overall_tic;
+			/*InputMesh.CreatePragmaticDataStructures_par(threads_log, refine_times, l2g_build, l2g_access, g2l_build, g2l_access, 
+														algo, options, triangulate_log, int_check_log);//, build_tri_ds); //*/
+			InputMesh.CreatePragmaticDataStructures_par(algo, threads_log, mesh_log, heal_log, metric_log, call_refine_log, refine_log);
+														
+			std::chrono::duration<double> cpds_duration = std::chrono::system_clock::now() - wall_tic;	
 
+			std::chrono::duration<double> overall_duration = std::chrono::system_clock::now() - overall_tic;
+			
 			int r_vertices {0};
 			int r_elements {0};
 			
@@ -131,13 +102,11 @@ namespace viennamesh
 			csv_name+= input_file().substr(found+1, find_vtu-found-1);
 			csv_name+=".csv";
 
-			csv.open(csv_name.c_str(), ios::app);
-
 			//csv << "File, Threads, Vertices, Elements, Desired Partitions, Created Partitions, Colors, Metis [s], Adjacency Info [s], 
 			//Coloring [s], Parallel DSs [s], Prep [s], Nodes [s], g2l [s], l2g [s], Coords [s], ENList [s], new Mesh [s], Boundary [s], Metric [s],
 			// Update Metric [s], Interface Check [s],  Refine [s], Create Refine [s], R-Vertices, R-Elements, Total [s], Thread Times in Color Loop [s]" << std::endl;
-			csv << input_file().substr(found+1) << ", " << num_threads() << ", " << input_mesh()->get_number_nodes() << ", ";
-			csv << input_mesh()->get_number_elements() << ", "  << num_partitions();// << ", " << InputMesh.get_max()+1;
+			csv << input_file().substr(found+1) << ", " << num_threads() << ", " << in_mesh->get_number_nodes() << ", ";
+			csv << in_mesh->get_number_elements() << ", "  << num_partitions();// << ", " << InputMesh.get_max()+1;
 			csv << ", " << InputMesh.get_colors() << ", ";
 			csv << std::fixed << std::setprecision(8) << partitioning_duration.count() << ", ";
 			csv << adjacency_duration.count() << ", ";
@@ -213,43 +182,9 @@ namespace viennamesh
 			//InputMesh.WritePartitions();
 			//InputMesh.WriteMergedMesh("output.vtu");
 
-			/*
-			auto overall_tic = std::chrono::system_clock::now();
+			//set_output("mesh", input_mesh());
 
-			auto wall_tic = std::chrono::system_clock::now();
-				MetisPartitioning(original_mesh, num_regions);
-			std::chrono::duration<double> partitioning_duration = std::chrono::system_clock::now() - wall_tic;
-			//viennamesh::info(1) << "  Partitioning time " << wall_clock_duration.count() << std::endl;
 
-			wall_tic = std::chrono::system_clock::now();
-				CreateNeighborhoodInformation(original_mesh, num_regions);
-			std::chrono::duration<double> adjacency_duration = std::chrono::system_clock::now() - wall_tic;
-			//viennamesh::info(1) << "  Creating adjacency information time " << wall_clock_duration.count() << std::endl;
-
-			wall_tic = std::chrono::system_clock::now();
-				ColorPartitions(num_regions);
-			std::chrono::duration<double> coloring_duration = std::chrono::system_clock::now() - wall_tic;
-			//viennamesh::info(1) << "  Coloring time " << wall_clock_duration.count() << std::endl;
-
-			std::chrono::duration<double> overall_duration = std::chrono::system_clock::now() - overall_tic;
-			//viennamesh::info(1) << "  Overall time inside " << overall_duration.count() << std::endl;
-
-			CreatePragmaticDataStructures_ser(original_mesh, num_regions); //Think about where I create the actual data structures!!!
-
-			ofstream csv;
-			csv.open("times.csv", ios::app);
-
-			//csv << "File, Vertices, Elements, Partitions, Colors, Partitioning [s], Adjacency Info [s], Coloring [s], Total [s]" << std::endl;
-			csv << filename << ", " << original_mesh->get_number_nodes() << ", " << original_mesh->get_number_elements() << ", ";
-			csv << num_regions << ", " << max+1 << ", " << colors << ", ";
-			csv <<  partitioning_duration.count() << ", ";
-			csv <<  adjacency_duration.count() << ", ";
-			csv <<  coloring_duration.count() << ", ";
-			csv <<  overall_duration.count() << std::endl;
-			csv.close();
-		
-			//WritePartitions();
-			*/
 			//Convert to ViennaGrid
 			//auto convert_tic = std::chrono::system_clock::now();
 
@@ -262,7 +197,7 @@ namespace viennamesh
 			int vertices = 0;
 			int elements = 0;
 
-			auto dimension = input_mesh()->get_number_dimensions();
+			auto dimension = in_mesh->get_number_dimensions();
 
 			//output_mesh.resize(num_partitions());
 
@@ -310,6 +245,8 @@ namespace viennamesh
 							//Update total number of vertices and elements
 							vertices += InputMesh.pragmatic_partitions[i]->get_number_nodes();
 							elements += InputMesh.pragmatic_partitions[i]->get_number_elements();
+
+							//delete InputMesh.pragmatic_partitions[i];
 						}
 					} //end of single mesh output
 					
@@ -344,6 +281,8 @@ namespace viennamesh
 							//Update total number of vertices and elements
 							vertices += InputMesh.pragmatic_partitions[i]->get_number_nodes();
 							elements += InputMesh.pragmatic_partitions[i]->get_number_elements();
+
+							
 						}
 					} //end of else ( multi mesh output )
 				} //end of if(dim == 2)
@@ -380,6 +319,8 @@ namespace viennamesh
 							//Update total number of vertices and elements
 							vertices += InputMesh.pragmatic_partitions[i]->get_number_nodes();
 							elements += InputMesh.pragmatic_partitions[i]->get_number_elements();
+
+							
 						}
 					} //end of if (single mesh output)
 
@@ -526,6 +467,8 @@ namespace viennamesh
 			viennamesh::info(1) << "Number of Elements: " << elements << std::endl;
 			set_output("mesh", output_mesh);
 			set_output("colors", InputMesh.get_colors());
+
+			//delete in_mesh;
 
 			return true;
 		} //end run()		

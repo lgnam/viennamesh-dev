@@ -10,7 +10,7 @@ namespace viennamesh
   		public:
     			color_refinement();
 
-    			static std::string name();
+				static std::string name();
 				bool run (viennamesh::algorithm_handle &);
   	};
 }
