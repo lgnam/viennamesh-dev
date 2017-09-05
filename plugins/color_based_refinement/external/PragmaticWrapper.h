@@ -1,20 +1,23 @@
 #ifndef PRAGMATIC_WRAPPER_H
 #define PRAGMATIC_WRAPPER_H
 
+#include <memory>
+
 class PragmaticWrapper
 {
     public:
+
         PragmaticWrapper() 
         {
-            std::cout << "Constructor" << std::endl;
+            //std::cout << "Constructor" << std::endl;
             mesh = nullptr;
         }
         ~PragmaticWrapper() 
         {
-            std::cout << "Destructor" << std::endl;
+            //std::cout << "Destructor" << std::endl;
             if (mesh != nullptr)
             {
-                std::cout << "deleting mesh" << std::endl;
+                //std::cout << "deleting mesh at " << mesh << std::endl;
                 delete mesh;
                 mesh = nullptr;
             }
@@ -23,15 +26,13 @@ class PragmaticWrapper
 
         void CreateMesh(viennagrid::mesh const & input) 
         {            
-            std::cout << "Create Mesh" << std::endl;
+            //std::cout << "Create Mesh"<< std::endl;
 
             //get basic information about mesh
             size_t cell_dimension = viennagrid::cell_dimension(input);
             size_t geometric_dimension = viennagrid::geometric_dimension(input);
             size_t NNodes = viennagrid::vertex_count(input);
             size_t NElements = viennagrid::cells(input).size();
-
-            std::cout << NNodes << " " << NElements << std::endl;
 
             //set up vectors for ENList and x-, y- and z-coordinates
             std::vector<index_t> ENList;
@@ -98,21 +99,23 @@ class PragmaticWrapper
             if (geometric_dimension == 2)	
             {
                 mesh = new Mesh<double> (NNodes, NElements, &(ENList[0]), &(x[0]), &(y[0]));
-                mesh->create_boundary(); //*/
-                std::cout << "NNodes " << mesh->get_number_nodes() << ", NElements " << mesh->get_number_elements() << std::endl;
-                //mesh = new int;
+                /*mesh = std::make_unique< Mesh<double> >(NNodes, NElements, &(ENList[0]), &(x[0]), &(y[0]));*/
+                mesh->create_boundary(); 
             }
-        /*
+        
             else
             {		
                 mesh = new Mesh<double> (NNodes, NElements, &(ENList[0]), &(x[0]), &(y[0]), &(z[0]));
                 mesh->create_boundary();
             }
             //*/
+
+            /*std::cout << "Created Mesh at " << mesh << std::endl;//*/
+            
         } //end of CreateMesh(viennagrid::mesh const & input)
 
-    private:
-        Mesh<double>* mesh;
-        //int* mesh;
+    //Members    
+    Mesh<double>* mesh;
+    //std::unique_ptr<Mesh<double>> mesh;
 };
 #endif

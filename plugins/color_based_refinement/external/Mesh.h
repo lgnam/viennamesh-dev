@@ -51,7 +51,7 @@
 #endif
 
 #ifdef HAVE_OPENMP
-#include <omp.h>
+//#include <omp.h>
 #endif
 
 #include "mpi_tools.h"
@@ -152,6 +152,7 @@ public:
     /// Default destructor.
     ~Mesh()
     {
+        //std::cout << "deleting property at " << property << std::endl;
         delete property;
     }
 
@@ -644,7 +645,7 @@ public:
         double total_length=0;
         int nedges=0;
 
-        #pragma omp parallel for reduction(+:total_length,nedges)
+        #pragma omp parallel for reduction(+:total_length,nedges) num_threads(1)
         for(int i=0; i<NNodes; i++) {
             if(is_owned_node(i) && (NNList[i].size()>0)) {
                 for(typename std::vector<index_t>::const_iterator it=NNList[i].begin(); it!=NNList[i].end(); ++it) {
@@ -824,7 +825,7 @@ public:
             std::cerr<<"ERROR: Cannot calculate volume in 2D\n";
         } else { // 3D
             if(num_processes>1) {
-                #pragma omp parallel for reduction(+:total_volume)
+                #pragma omp parallel for reduction(+:total_volume) num_threads(1)
                 for(int i=0; i<NElements; i++) {
                     const index_t *n=get_element(i);
                     if(n[0] < 0)
@@ -858,7 +859,7 @@ public:
                 MPI_Allreduce(MPI_IN_PLACE, &total_volume, 1, MPI_LONG_DOUBLE, MPI_SUM, _mpi_comm);
 #endif
             } else {
-                #pragma omp parallel for reduction(+:total_volume)
+                #pragma omp parallel for reduction(+:total_volume) num_threads(1)
                 for(int i=0; i<NElements; i++) {
                     const index_t *n=get_element(i);
                     if(n[0] < 0)
@@ -894,7 +895,7 @@ public:
         double sum=0;
         int nele=0;
 
-        #pragma omp parallel for reduction(+:sum, nele)
+        #pragma omp parallel for reduction(+:sum, nele) num_threads(1)
         for(size_t i=0; i<NElements; i++) {
             const index_t *n=get_element(i);
             if(n[0]<0)
@@ -965,7 +966,7 @@ public:
     {
         double qmin=1; // Where 1 is ideal.
 
-        #pragma omp parallel for reduction(min:qmin)
+        #pragma omp parallel for reduction(min:qmin) num_threads(1)
         for(size_t i=0; i<NElements; i++) {
             const index_t *n=get_element(i);
             if(n[0]<0)
@@ -987,7 +988,7 @@ public:
     {
         double qmin=1; // Where 1 is ideal.
 
-        #pragma omp parallel for reduction(min:qmin)
+        #pragma omp parallel for reduction(min:qmin) num_threads(1)
         for(size_t i=0; i<NElements; i++) {
             const index_t *n=get_element(i);
             if(n[0]<0)
@@ -1086,7 +1087,7 @@ public:
     {
         double L_max = 0.0;
 
-        #pragma omp parallel for reduction(max:L_max)
+        #pragma omp parallel for reduction(max:L_max) num_threads(1)
         for(index_t i=0; i<(index_t) NNodes; i++) {
             for(typename std::vector<index_t>::const_iterator it=NNList[i].begin(); it!=NNList[i].end(); ++it) {
                 if(i<*it) { // Ensure that every edge length is only calculated once.
@@ -1111,7 +1112,7 @@ public:
         // Discover which vertices and elements are active.
         std::vector<index_t> active_vertex_map(NNodes);
 
-        #pragma omp parallel for schedule(static)
+        #pragma omp parallel for schedule(static) num_threads(1)
         for(size_t i=0; i<NNodes; i++) {
             active_vertex_map[i] = -1;
             NNList[i].clear();
@@ -1215,7 +1216,7 @@ public:
         std::vector<double> defrag_quality(NElements);
 
         // This first touch is to bind memory locally.
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             #pragma omp for schedule(static)
             for(int i=0; i<(int)NElements; i++) {
@@ -1744,7 +1745,7 @@ private:
 
         // TODO I don't know whether this method makes sense anymore.
         // Enforce first-touch policy
-        #pragma omp parallel
+        #pragma omp parallel num_threads(1)
         {
             #pragma omp for schedule(static)
             for(int i=0; i<(int)NElements; i++) {
@@ -1789,14 +1790,20 @@ private:
                 assert(n[0]>=0);
 
                 if(ndims==2)
+                {
                     property = new ElementProperty<real_t>(get_coords(n[0]),
                                                            get_coords(n[1]),
                                                            get_coords(n[2]));
+                    //std::cout << "created property at " << property << std::endl;
+                }
                 else
+                {
                     property = new ElementProperty<real_t>(get_coords(n[0]),
                                                            get_coords(n[1]),
                                                            get_coords(n[2]),
                                                            get_coords(n[3]));
+                    //std::cout << "created property at " << property << std::endl;
+                }
             }
 
             if(ndims==2) {

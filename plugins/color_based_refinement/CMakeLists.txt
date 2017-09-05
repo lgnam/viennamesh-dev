@@ -5,7 +5,7 @@ include_directories(external)
 add_definitions( -DTRILIBRARY -DANSI_DECLARATORS -DEXTERNAL_TEST -DNO_TIMER )
 
 #Set flag if OpenMP has been found on the system or output an error if not, since it is required for the use of pragmatic
-#find_package(OpenMP)
+find_package(OpenMP)
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
@@ -13,8 +13,8 @@ if (OPENMP_FOUND)
     message(STATUS "Found OPENMP")
     message(STATUS "${CMAKE_C_FLAGS}")
     message(STATUS "${CMAKE_CXX_FLAGS}")
-#else()
- #   message(FATAL_ERROR "OpenMP not found")
+else()
+    message(FATAL_ERROR "OpenMP not found")
 endif()
 
 #find METIS package
@@ -31,7 +31,9 @@ endif()
 #Add ViennaMesh Plugin
 VIENNAMESH_ADD_PLUGIN(viennamesh-module-color-refinement plugin.cpp
                       color_refinement.cpp
-                      pragmatic_mesh.cpp)
+                      pragmatic_mesh.cpp
+                      external/triangle.c
+                      triangle_interface.c)
 
 #Link with VTK library
 find_package(VTK REQUIRED)

@@ -6,7 +6,7 @@ namespace viennamesh
 {
     viennamesh_error convert(viennagrid::mesh const & input, pragmatic_wrapper::mesh & output)
     {
-        std::cout << std::endl << "viennagrid to pragmatic" << std::endl;
+        //std::cout << std::endl << "viennagrid to pragmatic" << std::endl;
 /*
         //get basic information about mesh
         size_t cell_dimension = viennagrid::cell_dimension(input);
@@ -96,7 +96,7 @@ namespace viennamesh
 
     viennamesh_error convert(pragmatic_wrapper::mesh const & input, viennagrid::mesh & output)
     {
-        std::cout << std::endl << "pragmatic to viennagrid" << std::endl;
+        //std::cout << std::endl << "pragmatic to viennagrid" << std::endl;
 /*
         //ViennaGrid typedefs
         typedef viennagrid::mesh                                                        MeshType;
@@ -138,13 +138,14 @@ namespace viennamesh
     template<>
     viennamesh_error internal_convert<viennagrid_mesh, pragmatic_wrapper::mesh>(viennagrid_mesh const & input, pragmatic_wrapper::mesh & output)
     {
-        std::cerr << std::endl << "internal convert viennagrid to pragmatic" << std::endl;
+        //std::cerr << std::endl << "internal convert viennagrid to pragmatic" << std::endl;
         return convert(viennagrid::mesh(input), output);
     }
 
     template<>
     viennamesh_error internal_convert<pragmatic_wrapper::mesh, viennagrid_mesh>(pragmatic_wrapper::mesh const & input, viennagrid_mesh & output)
     {
+        //std::cerr << std::endl << "internal convert pragmatic to viennagrid" << std::endl;
         viennagrid::mesh output_pp(output);
         return convert(input, output_pp);
     }
