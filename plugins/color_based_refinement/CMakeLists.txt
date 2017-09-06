@@ -28,6 +28,20 @@ else()
   message(FATAL_ERROR "METIS not found")
 endif()
 
+#find MTMETIS library
+find_library(MTMETIS_LIBRARY 
+             NAMES mtmetis
+             HINTS /usr/local/lib/
+             PATH_SUFFIXES lib)
+message(STATUS "MTMETIS library: ${MTMETIS_LIBRARY}")
+
+find_library(WILDRIVER_LIBRARY 
+             NAMES wildriver
+             HINTS /usr/local/lib/
+             PATH_SUFFIXES lib)
+message(STATUS "WILDRIVER library: ${WILDRIVER_LIBRARY}")
+
+
 #Add ViennaMesh Plugin
 VIENNAMESH_ADD_PLUGIN(viennamesh-module-color-refinement plugin.cpp
                       color_refinement.cpp
@@ -42,3 +56,6 @@ target_link_libraries(viennamesh-module-color-refinement ${VTK_LIBRARIES})
 
 #Link with METIS library
 target_link_libraries(viennamesh-module-color-refinement ${METIS_LIBRARIES})
+
+#Link also with MTMETS
+target_link_libraries(viennamesh-module-color-refinement ${MTMETIS_LIBRARY} ${WILDRIVER_LIBRARY})

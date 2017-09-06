@@ -380,7 +380,7 @@ bool MeshPartitions::MetisPartitioning()
     METIS_SetDefaultOptions(options);
     options[METIS_OPTION_PTYPE]=METIS_PTYPE_RB;
 */
-    METIS_PartMeshDual  (&num_elements,
+   /* METIS_PartMeshDual  (&num_elements,
                          &num_nodes,
                          eptr.data(),
                          eind.data(),
@@ -414,7 +414,7 @@ bool MeshPartitions::MetisPartitioning()
 
     viennamesh::info(5) << "Created " << num_regions << " mesh partitions using METIS_PartMeshNodal" << std::endl;
                         //*/
-/*
+
     idx_t *xadj=NULL, *adjncy=NULL;//, *nptr=NULL, *nind=NULL;
     idx_t pnumflag=0;
     double * options = mtmetis_init_options();
@@ -435,7 +435,7 @@ bool MeshPartitions::MetisPartitioning()
     epart.resize(num_elements);
 
     unsigned int where[num_elements];
-/*
+
     viennamesh::info(5) << "  Partitioning with MTMETIS_PartGraphKway" << std::endl;
 
     MTMETIS_PartGraphKway(//const_cast<unsigned int*>( (unsigned int*) &ne), 
@@ -460,6 +460,10 @@ bool MeshPartitions::MetisPartitioning()
                           &result, 
                           //where);
                           const_cast<unsigned int*>( (unsigned int*) epart.data()) );
+
+    free (xadj);
+    free (adjncy);
+    free (options);
 
     viennamesh::info(5) << "Created " << num_regions << " mesh partitions using mt-Metis" << std::endl;
 
@@ -489,6 +493,10 @@ bool MeshPartitions::MetisPartitioning()
                             &result, 
                             //where);
                             const_cast<unsigned int*>( (unsigned int*) epart.data()) );
+
+    free (xadj);
+    free (adjncy);
+    free (options);
 
     viennamesh::info(5) << "Created " << num_regions << " mesh partitions using mt-Metis" << std::endl;
 /*
