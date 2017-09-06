@@ -17,6 +17,15 @@ else()
     message(FATAL_ERROR "OpenMP not found")
 endif()
 
+#find Eigen package
+#find_package(Eigen3 REQUIRED)
+#if (TARGET Eigen3::Eigen)
+  #message(STATUS "Found Eigen3")
+  #include_directories(${EIGEN3_INCLUDE_DIR})
+#else()
+  #message(FATAL_ERROR "Eigen3 not found!")
+#endif()
+
 #find METIS package
 find_package(METIS QUIET)
 if (METIS_FOUND)
