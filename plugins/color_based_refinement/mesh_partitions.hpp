@@ -1833,7 +1833,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
                         /*refiner.refine(0.0005, nodes_partition_ids, l2g_vertices_tmp, g2l_vertices_tmp, l2g_elements_tmp, g2l_elements_tmp,
                                    &ref_detail_log[0], num_nodes, num_elements, part_id, outbox_data, outboxes, partition_colors,
                                    partition_adjcy[part_id]); //*/
-                        /*refiner.refine(0.005, nodes_partition_ids, l2g_vertices_tmp, g2l_vertices_tmp, part_id, outbox_data, 
+                        refiner.refine(0.005, nodes_partition_ids, l2g_vertices_tmp, g2l_vertices_tmp, part_id, outbox_data, 
                                        partition_colors, partition_adjcy[part_id]);//*/
                     }
 
@@ -1855,7 +1855,7 @@ bool MeshPartitions::CreatePragmaticDataStructures_par(std::string algorithm, st
                     //if (color == 0)
                     {
                         //std::cout << "refine partition " << part_id << std::endl;
-                        /*refiner.refine(0.0005, nodes_partition_ids, l2g_vertices_tmp, g2l_vertices_tmp, part_id, outbox_data, 
+                        refiner.refine(0.0005, nodes_partition_ids, l2g_vertices_tmp, g2l_vertices_tmp, part_id, outbox_data, 
                                        partition_colors, partition_adjcy[part_id]);//*/
                     }
                     
