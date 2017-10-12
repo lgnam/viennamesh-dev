@@ -45,8 +45,7 @@ bool cgal_statistic::run(algorithm_handle&)
 
 
     //run statistic
-    operator() ();
-    operator() ();
+    make_statistic();
 
     //set output
     set_output<cgal::polyhedron_surface_mesh>("mesh", new_mesh);
@@ -64,6 +63,17 @@ bool cgal_statistic::run(algorithm_handle&)
     }
     else 
         std::cout << "no quantities\n";
+}
+
+cgal_statistic::~cgal_statistic()
+{
+    for(unsigned long at=0;at<quantity_fields.size();++at)
+    {
+        viennagrid_quantity_field_release(quantity_fields.at(at));
+    }
+    quantity_fields.clear();
+
+
 }
 
 //default quantities
@@ -244,14 +254,9 @@ void cgal_statistic::add_quantity(statistic_data_t data)
 
 
 //basically the run function 
-//needs to be called twice 
-//  once after the initialization or seting the old(original) mesh 
-//  once after the new(corsed) mesh was set by get_new_mesh()=coarsed_mesh
 //this generates the needed structurs and then runs statisttic()
-void cgal_statistic::operator()()
+void cgal_statistic::make_statistic()
 {
-    if(state==0)
-    {
         old_tree.insert(faces(old_mesh).begin(),faces(old_mesh).end(),old_mesh);
         old_tree.build();
         old_tree.accelerate_distance_queries();
@@ -259,9 +264,6 @@ void cgal_statistic::operator()()
         std::cout << "Mesh size: " << old_mesh.size_of_facets() << "\n";
         std::cout << "Tree size: " << old_tree.size() << "\n";
         ++state;
-    }
-    else if(state==1)
-    {
         if (new_mesh.empty() ) throw "Needs a corased mesh";
         new_tree.insert(faces(new_mesh).begin(),faces(new_mesh).end(),new_mesh);
         new_tree.build();
@@ -269,9 +271,9 @@ void cgal_statistic::operator()()
         statistic();
         std::cout <<"org Area: " << old_area << "corsed Area: " << new_area << "\n";
         ++state;
+#if __enable_libigl
         curvature_igl(new_mesh);
-        // make_curvature();
-    }
+#endif //__enable_libigl
 }
 
 
@@ -543,7 +545,7 @@ void quantity_field_choose(viennagrid_quantity_field quantity_field,cgal_statist
     }
 }
 
-//this dosen't work it has to be made manually in the plugin that uses this class
+//this only works as a plugin
 data_handle<viennagrid_quantity_field> cgal_statistic::make_data_handle()
 {
     if(quantity_fields.size()==0) throw "no quantities";

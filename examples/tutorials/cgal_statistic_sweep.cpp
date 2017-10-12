@@ -8,13 +8,13 @@
 
 struct policy_placement_s
 {
-    std::string lind="lundrstrom-turk";
+    std::string lind="lindstrom-turk";
     std::string mid ="mid-point";
 }policy_placement;      //erzeugt structs
 
 struct policy_cost_s
 {
-    std::string lind="lundstrom-turk";
+    std::string lind="lindstrom-turk";
     std::string edge="edge-length";
 
 }policy_cost;           //erzeugt structs

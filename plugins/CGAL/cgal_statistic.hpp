@@ -129,12 +129,14 @@ namespace viennamesh
             //constructor
             cgal_statistic(mesh_t starting_mesh):old_mesh(starting_mesh){}
             cgal_statistic(){}
+            virtual ~cgal_statistic();
+        
 
             //plugin stuff
             static std::string name(){return "cgal_statistic";}
             bool run(viennamesh::algorithm_handle &);
             
-            void operator() ();
+            void make_statistic();                                         //ändern
             void make_quantity_fields();
             void default_quantities();
             void add_quantity(statistic_data_t data);
@@ -207,8 +209,9 @@ namespace viennamesh
             std::vector<statistic_data_t>   data_Point;     //all quantities that are stored dor Points
             std::vector<statistic_data_t>   data_Edge;      //all quantities that are stored dor Edges
             std::vector<statistic_data_t>   data_Facet;     //all quantities that are stored dor Facets
-        protected: 
+
             std::vector<viennagrid_quantity_field> quantity_fields;
+            
             
     };
 }
