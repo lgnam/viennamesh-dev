@@ -3,6 +3,7 @@
 #include "cgal_mesh_simplification.hpp"
 #include "cgal_automatic_mesh_simplification.hpp"
 #include "cgal_statistic.hpp"
+#include "private_reader.hpp"
 
 viennamesh_error viennamesh_plugin_init(viennamesh_context context)
 {

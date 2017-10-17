@@ -93,7 +93,7 @@ double cgal_statistic::diffrence_of_mean(std::vector<double> orig,double coarse)
     return std::accumulate(orig.begin(),orig.end(),acc)/orig.size()-coarse;
 }
 //retuns the Monge form around a Point of a givn mesh
-//From what I understand the Mongeform is a mathematical Plane that is fitted to go through the Points
+//From what I understand the Mongeform is a mathematical Plane that is fitted to go through or close to the Points
 //http://doc.cgal.org/latest/Jet_fitting_3/Jet_fitting_3_2Mesh_estimation_8cpp-example.html
 //https://github.com/CGAL/cgal/tree/master/Jet_fitting_3/examples/Jet_fitting_3
 cgal_statistic::Monge_form cgal_statistic::get_monge_form (Point_3 point,mesh_t& mesh)
