@@ -94,7 +94,7 @@ if (ENABLE_PLUGIN_VTK)
   add_subdirectory(VTK)
 endif()
 
-option(ENABLE_PLUGIN_PRAGMATIC "Enable pragmatic plugin" OFF)
+option(ENABLE_PLUGIN_PRAGMATIC "Enable pragmatic plugin" ON)
 if (ENABLE_PLUGIN_PRAGMATIC)
   add_subdirectory(pragmatic)
 endif()

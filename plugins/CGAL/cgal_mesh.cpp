@@ -77,9 +77,6 @@ namespace viennamesh
 
             }
 
-
-
-
             /*number of triangle, which failed to be added because none of the both possible orientation ensures a valid half
              * edge data structure (This is mostly due to topological or numeric problems.*/
             int failed_triangle_cnt = 0;
@@ -88,7 +85,6 @@ namespace viennamesh
              * data structre it is flipped by choosing an anticyclic permutation of the vertices.*/
             for(std::vector<int>::const_iterator it = facets.begin(); it < facets.end(); it = it+3)
             {
-
                 if(Builder.test_facet(it, it+3) == true) //CGAL function that tests the current triangle orientation
                 {
                     Builder.add_facet (it,it+3);
@@ -143,8 +139,7 @@ namespace viennamesh
         triangles.push_back(tri);
         triangle_visited.insert(tri.id().index());
 
-
-        ConstNeighborRange cr(mesh, tri);
+      ConstNeighborRange cr(mesh, tri);
 
         for(ConstNeighborIterator ci = cr.begin(); ci != cr.end(); ++ci)
         {

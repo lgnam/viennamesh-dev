@@ -2,6 +2,8 @@
 #include "cgal_mesh.hpp"
 #include "cgal_mesh_simplification.hpp"
 #include "cgal_automatic_mesh_simplification.hpp"
+#include "cgal_statistic.hpp"
+#include "private_reader.hpp"
 
 viennamesh_error viennamesh_plugin_init(viennamesh_context context)
 {
@@ -12,6 +14,8 @@ viennamesh_error viennamesh_plugin_init(viennamesh_context context)
 
   viennamesh::register_algorithm<viennamesh::cgal::cgal_mesh_simplification>(context); //mesh simplification with user defined policies and parameters
   viennamesh::register_algorithm<viennamesh::cgal::cgal_automatic_mesh_simplification>(context); //mesh simplifiaction with automatically chosen policies and parameters
+
+  viennamesh::register_algorithm<viennamesh::cgal_statistic>(context); //register cgal statistic plugin
 
   return VIENNAMESH_SUCCESS;
 }
