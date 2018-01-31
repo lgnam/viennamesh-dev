@@ -210,6 +210,7 @@ namespace viennamesh
                 }
             }
             std::cout << "Finished itterating now it will start to collapse stuff\n";
+
             return SMS::edge_collapse
                    (surface_mesh
                     ,stop
@@ -262,8 +263,7 @@ namespace viennamesh
         bool cgal_mesh_simplification::run(algorithm_handle&)
         {
 
-            //Get mesh data (REQUIRED)
-            
+            //Get mesh data (REQUIRED
             
             data_handle<cgal::polyhedron_surface_mesh> input_mesh = get_required_input<cgal::polyhedron_surface_mesh>("mesh");
  
@@ -284,19 +284,16 @@ namespace viennamesh
             data_handle<viennagrid_numeric> lindstrom_shape_weight = get_input<viennagrid_numeric>("lindstrom_shape_weight");
 
             //Create output mesh handle
-            
             data_handle<cgal::polyhedron_surface_mesh> output_mesh = make_data<cgal::polyhedron_surface_mesh>();
 
             //Declare internal reference to output mesh
             cgal::polyhedron_surface_mesh & my_mesh = const_cast<cgal::polyhedron_surface_mesh&> (output_mesh());
             my_mesh = input_mesh();
-
                        
             //cgal statistic stuff test
             // cgal_statistic testclass(my_mesh);
             // testclass.default_quantities();
             // testclass();
-
 
             /* Feature preservation by angle (given in rad) - Warning: Feature preservation is experimental!
              * Extremely low performance (coarsening times of even hours) can be possible!
@@ -830,6 +827,7 @@ namespace viennamesh
             //     std::cout << "no quantities\n";
           
             // std::cout << testclass.get_old_mesh().size_of_facets() << " : " << testclass.get_new_mesh().size_of_facets()<<"\n";
+
             return true;
         }
     }

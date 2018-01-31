@@ -222,6 +222,7 @@ namespace viennamesh
             set_output("triangle_shape", statistic.good_elements()/statistic.count());
             set_output("mesh_quality_metric", statistic.mesh_quality_metric());
             set_output( "number_of_cells_original", viennagrid_numeric(statistic_orig.count()));
+
         }
 
 
